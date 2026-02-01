@@ -20,7 +20,7 @@ COPY kc-plugins/src ./src
 RUN gradle shadowJar --no-daemon
 
 # ================== Stage 2: Build Themes ==================
-FROM node:20-alpine AS theme-builder
+FROM node:25-alpine AS theme-builder
 
 WORKDIR /build
 
