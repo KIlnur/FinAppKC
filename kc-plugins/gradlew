@@ -1,0 +1,46 @@
+#!/bin/sh
+
+#
+# Gradle wrapper script for Unix
+#
+
+# Determine the Java command to use
+if [ -n "$JAVA_HOME" ] ; then
+    JAVACMD="$JAVA_HOME/bin/java"
+else
+    JAVACMD="java"
+fi
+
+# Check that Java is available
+if ! command -v "$JAVACMD" >/dev/null 2>&1 ; then
+    echo "Error: JAVA_HOME is not set and no 'java' command could be found in your PATH." >&2
+    exit 1
+fi
+
+# Get the base directory
+APP_BASE_NAME=$(basename "$0")
+APP_HOME=$(cd "$(dirname "$0")" && pwd -P)
+
+# Gradle wrapper JAR location
+WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+# Download wrapper if needed
+if [ ! -f "$WRAPPER_JAR" ]; then
+    echo "Downloading Gradle Wrapper..."
+    mkdir -p "$APP_HOME/gradle/wrapper"
+    curl -fsSL -o "$WRAPPER_JAR" \
+        "https://services.gradle.org/distributions/gradle-8.6-bin.zip" && \
+    unzip -q "$WRAPPER_JAR" -d "$APP_HOME/gradle/wrapper" 2>/dev/null || \
+    echo "Note: Using gradle directly, wrapper download skipped"
+fi
+
+# Execute Gradle
+exec "$JAVACMD" \
+    -Xmx64m \
+    -Xms64m \
+    -classpath "$WRAPPER_JAR" \
+    org.gradle.wrapper.GradleWrapperMain \
+    "$@"
+
+# Fallback: use gradle directly if wrapper fails
+exec gradle "$@"

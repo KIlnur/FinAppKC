@@ -1,0 +1,132 @@
+# ============================================================
+# Promtail Configuration for FinAppKC
+# Collects logs from Docker containers and sends to Loki
+# ============================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Docker container logs
+  - job_name: containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: containerlogs
+          __path__: /var/lib/docker/containers/*/*.log
+
+    pipeline_stages:
+      # Parse Docker JSON logs
+      - json:
+          expressions:
+            log: log
+            stream: stream
+            time: time
+            attrs: attrs
+
+      # Extract container info from filename
+      - regex:
+          source: filename
+          expression: '/var/lib/docker/containers/(?P<container_id>[a-f0-9]+)/.*'
+
+      # Set labels
+      - labels:
+          stream:
+          container_id:
+
+      # Parse Keycloak structured logs
+      - match:
+          selector: '{job="containerlogs"}'
+          stages:
+            - regex:
+                source: log
+                expression: '(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?P<level>\w+)\s+\[(?P<logger>[^\]]+)\] \((?P<thread>[^\)]+)\) (?P<message>.*)'
+
+            - labels:
+                level:
+                logger:
+
+            # Parse Keycloak audit events
+            - match:
+                selector: '{logger="com.finappkc.plugins"}'
+                stages:
+                  - regex:
+                      source: message
+                      expression: 'plugin=(?P<plugin>\w+), eventType=(?P<event_type>\w+), realm=(?P<realm>\w+)'
+                  - labels:
+                      plugin:
+                      event_type:
+                      realm:
+
+      # Output parsed log
+      - output:
+          source: log
+
+  # Keycloak logs via Docker labels
+  - job_name: keycloak
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["finappkc-keycloak"]
+
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'logstream'
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'service'
+
+    pipeline_stages:
+      # Parse JSON logs (if enabled in Keycloak)
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            loggerClassName: loggerClassName
+            message: message
+          drop_malformed: true
+
+      # Fallback: parse standard logs
+      - regex:
+          source: message
+          expression: '(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?P<level>\w+)\s+\[(?P<logger>[^\]]+)\]'
+
+      - labels:
+          level:
+          logger:
+
+      # Parse audit event details
+      - match:
+          selector: '{service="keycloak"} |~ "eventType="'
+          stages:
+            - regex:
+                expression: 'eventType=(?P<event_type>\w+)'
+            - regex:
+                expression: 'realm=(?P<realm>\w+)'
+            - regex:
+                expression: 'userId=(?P<user_id>[a-f0-9-]+)'
+            - regex:
+                expression: 'clientId=(?P<client_id>\w+)'
+            - regex:
+                expression: 'ipAddress=(?P<ip_address>[\d\.]+)'
+            - regex:
+                expression: 'error=(?P<error>\w+)'
+            - labels:
+                event_type:
+                realm:
+                user_id:
+                client_id:
+                ip_address:
+                error:

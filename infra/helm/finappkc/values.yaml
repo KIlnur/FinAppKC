@@ -1,0 +1,192 @@
+# FinAppKC Helm Chart Values
+# Default values for production deployment
+
+# Keycloak configuration
+replicaCount: 2
+
+image:
+  repository: ghcr.io/your-org/finappkc
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+  hosts:
+    - host: auth.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: keycloak-tls
+      hosts:
+        - auth.example.com
+
+# Resource limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - finappkc
+          topologyKey: kubernetes.io/hostname
+
+# Keycloak environment
+keycloak:
+  # Admin credentials (use secrets in production!)
+  admin:
+    existingSecret: ""
+    secretKey: "password"
+    username: admin
+    # password: set via secret
+
+  # Database
+  database:
+    vendor: postgres
+    host: finappkc-postgresql
+    port: 5432
+    database: keycloak
+    username: keycloak
+    existingSecret: ""
+    secretKey: "password"
+
+  # Hostname
+  hostname: auth.example.com
+  hostnameStrict: true
+  
+  # Proxy
+  proxyHeaders: xforwarded
+  
+  # Features
+  features:
+    - token-exchange
+    - admin-fine-grained-authz
+    - declarative-user-profile
+  
+  # Logging
+  logLevel: INFO
+  
+  # Health
+  health:
+    enabled: true
+  
+  # Metrics
+  metrics:
+    enabled: true
+
+  # Custom plugin configuration
+  plugins:
+    webhook:
+      enabled: false
+      url: ""
+      secretName: ""
+    audit:
+      includeIp: true
+      includeUserAgent: true
+    otp:
+      rateLimitEnabled: true
+      maxAttempts: 5
+      lockoutDurationSeconds: 300
+
+# PostgreSQL subchart configuration
+postgresql:
+  enabled: true
+  auth:
+    username: keycloak
+    database: keycloak
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+# Extra environment variables
+extraEnv: []
+
+# Extra volumes
+extraVolumes: []
+
+# Extra volume mounts
+extraVolumeMounts: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: true

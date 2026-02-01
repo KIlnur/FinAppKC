@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "finappkc.fullname" . }}
+  labels:
+    {{- include "finappkc.labels" . | nindent 4 }}
+data:
+  keycloak.conf: |
+    # Database
+    db={{ .Values.keycloak.database.vendor }}
+    db-url-host={{ .Values.keycloak.database.host }}
+    db-url-port={{ .Values.keycloak.database.port }}
+    db-url-database={{ .Values.keycloak.database.database }}
+    db-username={{ .Values.keycloak.database.username }}
+    db-pool-initial-size=5
+    db-pool-min-size=5
+    db-pool-max-size=20
+    
+    # HTTP
+    http-enabled=true
+    http-port=8080
+    
+    # Hostname
+    hostname={{ .Values.keycloak.hostname }}
+    hostname-strict={{ .Values.keycloak.hostnameStrict }}
+    
+    # Proxy
+    proxy-headers={{ .Values.keycloak.proxyHeaders }}
+    
+    # Health and metrics
+    health-enabled={{ .Values.keycloak.health.enabled }}
+    metrics-enabled={{ .Values.keycloak.metrics.enabled }}
+    
+    # Features
+    features={{ join "," .Values.keycloak.features }}
+    
+    # Logging
+    log-level={{ .Values.keycloak.logLevel }}

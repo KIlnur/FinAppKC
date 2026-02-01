@@ -1,0 +1,269 @@
+# ============================================================
+# FinAppKC Development Environment
+# Usage: docker-compose up -d
+# With monitoring: docker-compose --profile monitoring up -d
+# With webapp: docker-compose --profile webapp up -d
+# ============================================================
+
+services:
+  # ==================== PostgreSQL ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: finappkc-postgres
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KC_DB_USERNAME:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+
+  # ==================== Keycloak ====================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.4
+    container_name: finappkc-keycloak
+    command: start-dev --import-realm
+    environment:
+      # Admin credentials (CHANGE IN PRODUCTION!)
+      KEYCLOAK_ADMIN: ${KC_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+      
+      # Database connection
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      
+      # Hostname and proxy
+      KC_HOSTNAME: ${KC_HOSTNAME:-localhost}
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      
+      # Features
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+      KC_LOG_LEVEL: ${KC_LOG_LEVEL:-INFO}
+      
+      # JSON logging for Loki (production)
+      # KC_LOG_CONSOLE_OUTPUT: json
+      
+      # Plugin configuration
+      KC_FINAPP_AUDIT_INCLUDE_IP: ${KC_FINAPP_AUDIT_INCLUDE_IP:-true}
+      KC_FINAPP_OTP_RATE_LIMIT_ENABLED: ${KC_FINAPP_OTP_RATE_LIMIT_ENABLED:-true}
+      KC_FINAPP_OTP_MAX_ATTEMPTS: ${KC_FINAPP_OTP_MAX_ATTEMPTS:-5}
+    volumes:
+      # Mount providers (plugins and themes JARs)
+      - ../kc-server/providers:/opt/keycloak/providers:ro
+      # Custom themes (fallback FTL)
+      - ../kc-server/themes:/opt/keycloak/themes:ro
+      # Realm import
+      - ../realm-config/base:/opt/keycloak/data/import:ro
+    ports:
+      - "${KC_HTTP_PORT:-8080}:8080"
+      - "${KC_MANAGEMENT_PORT:-9001}:9000"  # Management/metrics port
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && timeout 1 cat <&3 | grep -q UP"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    labels:
+      - "logging=promtail"
+      - "logging_jobname=keycloak"
+
+  # ==================== MailHog (Development SMTP) ====================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: finappkc-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_WEB_PORT:-8025}:8025"
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - mail
+
+  # ==================== OpenTelemetry Collector (Optional) ====================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: finappkc-otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  # ==================== Jaeger (Optional - Tracing UI) ====================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: finappkc-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  # ============================================================
+  # MONITORING STACK (--profile monitoring)
+  # ============================================================
+
+  # ==================== Prometheus ====================
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    container_name: finappkc-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Loki (Log Aggregation) ====================
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: finappkc-loki
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Promtail (Log Collector) ====================
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: finappkc-promtail
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      - loki
+
+  # ==================== Grafana ====================
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: finappkc-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-clock-panel
+      # Anonymous access for development
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== PostgreSQL Exporter ====================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: finappkc-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${KC_DB_USERNAME:-keycloak}:${KC_DB_PASSWORD:-keycloak}@postgres:5432/${KC_DB_NAME:-keycloak}?sslmode=disable"
+    ports:
+      - "${POSTGRES_EXPORTER_PORT:-9187}:9187"
+    networks:
+      - finappkc-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  finappkc-network:
+    driver: bridge
+    name: finappkc-network
+
+volumes:
+  postgres_data:
+    name: finappkc-postgres-data
+  prometheus_data:
+    name: finappkc-prometheus-data
+  loki_data:
+    name: finappkc-loki-data
+  grafana_data:
+    name: finappkc-grafana-data

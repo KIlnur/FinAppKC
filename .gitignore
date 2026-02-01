@@ -1,0 +1,88 @@
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.project
+.classpath
+.settings/
+
+# ===== Gradle =====
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+**/build/
+
+# ===== Maven (backup) =====
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# ===== Kotlin =====
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# ===== Build outputs =====
+dist/
+out/
+*.log
+
+# ===== Keycloakify =====
+kc-themes/build_keycloak/
+kc-themes/.keycloakify/
+
+# ===== Provider JARs =====
+kc-server/providers/*.jar
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# ===== Secrets =====
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+credentials.json
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.bak
+
+# ===== Test outputs =====
+test-results/
+coverage/
+.nyc_output/
+*.lcov
+
+# ===== Terraform =====
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example

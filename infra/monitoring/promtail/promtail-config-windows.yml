@@ -1,0 +1,35 @@
+# ============================================================
+# Promtail Configuration for Windows/Docker Desktop
+# Simplified version without Docker socket access
+# ============================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Scrape Keycloak logs via Docker API (syslog)
+  - job_name: keycloak
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: keycloak
+          service: keycloak
+          __path__: /var/log/keycloak/*.log
+
+  # Alternative: use Docker logging driver to send logs
+  # This config expects logs to be mounted or sent via syslog
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: system
+          __path__: /var/log/*.log

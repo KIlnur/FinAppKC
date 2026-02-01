@@ -1,0 +1,21 @@
+# ============================================================
+# FinAppKC Keycloak Development Image
+# Faster builds for local development
+# ============================================================
+
+FROM quay.io/keycloak/keycloak:25.0.6
+
+# Development mode settings
+ENV KC_DB=postgres
+ENV KC_HEALTH_ENABLED=true
+ENV KC_METRICS_ENABLED=true
+ENV KC_LOG_LEVEL=INFO
+ENV KC_LOG_CONSOLE_FORMAT="%d{HH:mm:ss} %-5p [%c] %s%e%n"
+
+# Copy pre-built providers (mount from host in dev)
+# These directories will be volume-mounted in docker-compose
+COPY --chown=keycloak:keycloak conf/ /opt/keycloak/conf/
+
+# Don't run build step in dev - use start-dev command
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start-dev"]

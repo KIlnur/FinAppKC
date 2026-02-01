@@ -1,0 +1,27 @@
+apiVersion: v2
+name: finappkc
+description: FinAppKC - Enterprise Keycloak Identity Provider
+type: application
+version: 1.0.0
+appVersion: "25.0.6"
+
+keywords:
+  - keycloak
+  - identity
+  - authentication
+  - iam
+  - sso
+
+home: https://github.com/your-org/finappkc
+sources:
+  - https://github.com/your-org/finappkc
+
+maintainers:
+  - name: FinApp Team
+    email: team@finapp.com
+
+dependencies:
+  - name: postgresql
+    version: "~14.0.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

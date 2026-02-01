@@ -1,0 +1,74 @@
+# ============================================================
+# Dependabot Configuration
+# Automated dependency updates
+# ============================================================
+
+version: 2
+
+updates:
+  # Gradle dependencies
+  - package-ecosystem: "gradle"
+    directory: "/kc-plugins"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "gradle"
+    groups:
+      keycloak:
+        patterns:
+          - "org.keycloak*"
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.kotlinx*"
+      testing:
+        patterns:
+          - "org.junit*"
+          - "org.mockito*"
+          - "org.testcontainers*"
+
+  # NPM dependencies
+  - package-ecosystem: "npm"
+    directory: "/kc-themes"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      keycloakify:
+        patterns:
+          - "keycloakify*"
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      dev-tools:
+        patterns:
+          - "eslint*"
+          - "prettier*"
+          - "typescript*"
+          - "vite*"
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/kc-server"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"

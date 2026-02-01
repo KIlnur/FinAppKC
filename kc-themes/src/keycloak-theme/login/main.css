@@ -1,0 +1,652 @@
+/* ============================================
+   FinAppKC Custom Login Theme
+   Modern, clean design with accessibility focus
+   ============================================ */
+
+:root {
+  --finapp-primary: #3b82f6;
+  --finapp-primary-hover: #2563eb;
+  --finapp-primary-light: #eff6ff;
+  --finapp-bg: #f8fafc;
+  --finapp-card-bg: #ffffff;
+  --finapp-text: #1e293b;
+  --finapp-text-muted: #64748b;
+  --finapp-text-light: #94a3b8;
+  --finapp-border: #e2e8f0;
+  --finapp-border-focus: #3b82f6;
+  --finapp-error: #ef4444;
+  --finapp-error-bg: #fef2f2;
+  --finapp-success: #22c55e;
+  --finapp-success-bg: #f0fdf4;
+  --finapp-warning: #f59e0b;
+  --finapp-warning-bg: #fffbeb;
+  --finapp-info: #3b82f6;
+  --finapp-info-bg: #eff6ff;
+  --finapp-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --finapp-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --finapp-radius: 8px;
+  --finapp-radius-lg: 12px;
+  --finapp-transition: all 0.15s ease-in-out;
+}
+
+/* Base styles */
+.finappkc-html {
+  height: 100%;
+}
+
+.finappkc-body {
+  min-height: 100%;
+  background: linear-gradient(135deg, var(--finapp-bg) 0%, #e2e8f0 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--finapp-text);
+  margin: 0;
+  padding: 0;
+}
+
+/* Login container */
+.finappkc-login {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+/* Card styles */
+.finappkc-card {
+  background: var(--finapp-card-bg);
+  border-radius: var(--finapp-radius-lg);
+  box-shadow: var(--finapp-shadow-lg);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid var(--finapp-border);
+}
+
+/* Header */
+.finappkc-header-content {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.finappkc-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--finapp-text);
+  margin: 0 0 0.5rem 0;
+}
+
+.finappkc-subtitle {
+  color: var(--finapp-text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Form styles */
+.finappkc-form-wrapper {
+  width: 100%;
+}
+
+.finappkc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.finappkc-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.finappkc-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--finapp-text);
+}
+
+.finappkc-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--finapp-border);
+  border-radius: var(--finapp-radius);
+  background: var(--finapp-card-bg);
+  color: var(--finapp-text);
+  transition: var(--finapp-transition);
+  box-sizing: border-box;
+}
+
+.finappkc-input:focus {
+  outline: none;
+  border-color: var(--finapp-border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.finappkc-input[aria-invalid="true"] {
+  border-color: var(--finapp-error);
+}
+
+.finappkc-input::placeholder {
+  color: var(--finapp-text-light);
+}
+
+/* Error message */
+.finappkc-error {
+  color: var(--finapp-error);
+  font-size: 0.8125rem;
+  margin-top: 0.25rem;
+}
+
+/* Form options (remember me, forgot password) */
+.finappkc-form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.finappkc-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.finappkc-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--finapp-primary);
+  cursor: pointer;
+}
+
+.finappkc-checkbox-label {
+  font-size: 0.875rem;
+  color: var(--finapp-text-muted);
+  cursor: pointer;
+}
+
+/* Links */
+.finappkc-link {
+  color: var(--finapp-primary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: var(--finapp-transition);
+}
+
+.finappkc-link:hover {
+  color: var(--finapp-primary-hover);
+  text-decoration: underline;
+}
+
+/* Buttons */
+.finappkc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: var(--finapp-radius);
+  border: none;
+  cursor: pointer;
+  transition: var(--finapp-transition);
+  text-decoration: none;
+}
+
+.finappkc-btn-primary {
+  background: var(--finapp-primary);
+  color: white;
+}
+
+.finappkc-btn-primary:hover:not(:disabled) {
+  background: var(--finapp-primary-hover);
+}
+
+.finappkc-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.finappkc-btn-block {
+  width: 100%;
+}
+
+.finappkc-form-actions {
+  margin-top: 0.5rem;
+}
+
+/* Registration link */
+.finappkc-register {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--finapp-border);
+  font-size: 0.875rem;
+  color: var(--finapp-text-muted);
+}
+
+/* Social providers */
+.finappkc-social-providers {
+  margin-top: 1.5rem;
+}
+
+.finappkc-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.finappkc-divider::before,
+.finappkc-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--finapp-border);
+}
+
+.finappkc-divider span {
+  padding: 0 1rem;
+  color: var(--finapp-text-muted);
+  font-size: 0.8125rem;
+}
+
+.finappkc-social-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.finappkc-social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--finapp-border);
+  border-radius: var(--finapp-radius);
+  color: var(--finapp-text);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: var(--finapp-transition);
+}
+
+.finappkc-social-link:hover {
+  background: var(--finapp-bg);
+  border-color: var(--finapp-text-muted);
+}
+
+/* Alerts */
+.alert {
+  padding: 1rem;
+  border-radius: var(--finapp-radius);
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.alert-error,
+.pf-m-danger {
+  background: var(--finapp-error-bg);
+  border: 1px solid #fecaca;
+  color: var(--finapp-error);
+}
+
+.alert-success,
+.pf-m-success {
+  background: var(--finapp-success-bg);
+  border: 1px solid #bbf7d0;
+  color: var(--finapp-success);
+}
+
+.alert-warning,
+.pf-m-warning {
+  background: var(--finapp-warning-bg);
+  border: 1px solid #fde68a;
+  color: var(--finapp-warning);
+}
+
+.alert-info,
+.pf-m-info {
+  background: var(--finapp-info-bg);
+  border: 1px solid #bfdbfe;
+  color: var(--finapp-info);
+}
+
+/* Loading state */
+.finappkc-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-size: 1rem;
+  color: var(--finapp-text-muted);
+}
+
+/* ============================================
+   OTP Page
+   ============================================ */
+
+.finappkc-otp-input {
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 1.5rem;
+  text-align: center;
+  letter-spacing: 0.5rem;
+  padding: 1rem;
+}
+
+.finappkc-otp-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.finappkc-radio-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--finapp-border);
+  border-radius: var(--finapp-radius);
+  cursor: pointer;
+  transition: var(--finapp-transition);
+}
+
+.finappkc-radio-wrapper:hover {
+  background: var(--finapp-bg);
+}
+
+.finappkc-radio {
+  accent-color: var(--finapp-primary);
+}
+
+.finappkc-radio-label {
+  cursor: pointer;
+}
+
+/* ============================================
+   Error Page
+   ============================================ */
+
+.finappkc-error-page {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.finappkc-error-icon {
+  color: var(--finapp-error);
+  margin-bottom: 1.5rem;
+}
+
+.finappkc-error-title {
+  color: var(--finapp-error) !important;
+}
+
+.finappkc-error-message {
+  color: var(--finapp-text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.finappkc-error-actions {
+  margin-top: 1.5rem;
+}
+
+/* ============================================
+   Required indicator
+   ============================================ */
+
+.required {
+  color: var(--finapp-error);
+  margin-left: 0.25rem;
+}
+
+/* ============================================
+   WebAuthn / Passkeys
+   ============================================ */
+
+.finappkc-webauthn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.finappkc-webauthn-icon {
+  color: var(--finapp-primary);
+  margin-bottom: 1.5rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.finappkc-webauthn-text {
+  color: var(--finapp-text-muted);
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.finappkc-info-box {
+  background: var(--finapp-info-bg);
+  border: 1px solid #bfdbfe;
+  border-radius: var(--finapp-radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  width: 100%;
+}
+
+.finappkc-info-box h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: var(--finapp-text);
+}
+
+.finappkc-info-box p {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  color: var(--finapp-text-muted);
+}
+
+.finappkc-info-box ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.finappkc-info-box li {
+  font-size: 0.875rem;
+  color: var(--finapp-text);
+  padding: 0.25rem 0;
+}
+
+.finappkc-authenticators {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.finappkc-authenticator-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.finappkc-authenticator-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--finapp-bg);
+  border: 1px solid var(--finapp-border);
+  border-radius: var(--finapp-radius);
+  text-align: left;
+}
+
+.finappkc-authenticator-icon {
+  font-size: 1.25rem;
+}
+
+.finappkc-authenticator-label {
+  flex: 1;
+  font-weight: 500;
+  color: var(--finapp-text);
+}
+
+.finappkc-authenticator-date {
+  font-size: 0.75rem;
+  color: var(--finapp-text-light);
+}
+
+.finappkc-webauthn-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.finappkc-btn-lg {
+  padding: 1rem 1.5rem;
+  font-size: 1.0625rem;
+}
+
+.finappkc-passkey-icon {
+  margin-right: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.finappkc-link-secondary {
+  color: var(--finapp-text-muted);
+  font-weight: 400;
+}
+
+.finappkc-link-secondary:hover {
+  color: var(--finapp-text);
+}
+
+/* Alert styles for WebAuthn */
+.finappkc-alert {
+  padding: 1rem;
+  border-radius: var(--finapp-radius);
+  margin-bottom: 1rem;
+  width: 100%;
+  text-align: left;
+}
+
+.finappkc-alert-error {
+  background: var(--finapp-error-bg);
+  border: 1px solid #fecaca;
+  color: var(--finapp-error);
+}
+
+.finappkc-alert-success {
+  background: var(--finapp-success-bg);
+  border: 1px solid #bbf7d0;
+  color: var(--finapp-success);
+}
+
+/* Spinner */
+.finappkc-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Passkey button on login page */
+.finappkc-passkey-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.finappkc-passkey-divider::before,
+.finappkc-passkey-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--finapp-border);
+}
+
+.finappkc-passkey-divider span {
+  padding: 0 1rem;
+  color: var(--finapp-text-muted);
+  font-size: 0.8125rem;
+}
+
+.finappkc-btn-passkey {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid var(--finapp-border);
+  border-radius: var(--finapp-radius);
+  color: var(--finapp-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--finapp-transition);
+}
+
+.finappkc-btn-passkey:hover {
+  background: var(--finapp-bg);
+  border-color: var(--finapp-text-muted);
+}
+
+.finappkc-btn-passkey svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .finappkc-card {
+    padding: 1.5rem;
+    margin: 1rem;
+    border-radius: var(--finapp-radius);
+  }
+
+  .finappkc-title {
+    font-size: 1.5rem;
+  }
+
+  .finappkc-form-options {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .finappkc-webauthn-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+}
