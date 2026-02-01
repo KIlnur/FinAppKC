@@ -4,7 +4,7 @@
 # ============================================================
 
 # ================== Stage 1: Build Plugins ==================
-FROM gradle:8.6-jdk21 AS plugin-builder
+FROM gradle:9.3-jdk21 AS plugin-builder
 
 WORKDIR /build
 
