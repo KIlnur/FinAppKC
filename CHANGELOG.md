@@ -1,58 +1,59 @@
-# Changelog
+# История изменений
 
-All notable changes to this project will be documented in this file.
+Все значимые изменения проекта документируются в этом файле.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Формат основан на [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+проект следует [Семантическому версионированию](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Не выпущено]
 
-### Added
-- Initial project structure
-- Kotlin SPI plugins:
-  - Rate Limited OTP Authenticator
-  - Audit Event Listener with webhook support
-  - Profile Completion Required Action
-  - Custom REST API endpoints
-- Keycloakify themes:
-  - Login theme with modern UI
-  - Account theme integration
-  - i18n support (EN, RU)
-- Docker infrastructure:
-  - Multi-stage Dockerfile
-  - Docker Compose for development
-  - PostgreSQL integration
-- CI/CD:
-  - GitHub Actions workflows
-  - Build, test, and publish pipelines
-  - Security scanning
-  - Dependabot configuration
-- Documentation:
-  - Architecture documentation with Mermaid diagrams
-  - ADRs (Architecture Decision Records)
-  - Security hardening checklist
-  - Operations runbook
-  - Development guide
+### Добавлено
+- Identity Provider на Keycloak 26.1.4
+- Kotlin SPI-плагины:
+  - Rate Limited OTP Authenticator (защита от перебора)
+  - Audit Event Listener (структурированное логирование)
+  - Кастомные REST API-эндпоинты
+- Keycloakify-тема логина (React/TypeScript, интернационализация EN/RU)
+- Демо-приложение Webapp (React + oidc-spa):
+  - Профиль пользователя из JWT-клеймов
+  - Управление учётными данными OTP/Passkey
+  - Привязка социальных аккаунтов (Google)
+  - Просмотр активных сессий
+  - Инспектор токенов
+- Среда разработки Docker Compose с профилями:
+  - Базовый: Keycloak + PostgreSQL
+  - mail: MailHog (имитация SMTP)
+  - monitoring: Prometheus + Grafana + Loki + Promtail
+  - observability: OpenTelemetry Collector + Jaeger
+- Конфигурация realm:
+  - Базовый импорт через realm-export.json
+  - Скрипт пост-инициализации (init-realm.ps1) через Admin API
+  - Роли: admin, agent, merchant, user
+  - Группы: Administrators, Users
+  - Кастомный клиентский scope: finapp-user-attributes
+  - Поток аутентификации: browser-with-passkey (Passkey + пароль + условный OTP)
+  - Поток аутентификации: link-only-broker-login (соц. логин без регистрации)
+  - Google Identity Provider (режим только привязки)
+- Поддержка WebAuthn Passwordless (Passkeys)
+- Поддержка TOTP (условный OTP)
+- Дашборд Grafana: аудит-события Keycloak
+- Скрипты запуска (start.ps1, start.bat)
+- Документация: архитектура, разработка, сервисы, MailHog, безопасность, runbook, ADR
 
-### Security
-- Brute force protection in OTP authenticator
-- HMAC-SHA256 webhook signatures
-- Structured audit logging
-- CSP headers in themes
-
-## [1.0.0] - TBD
-
-### Added
-- Production-ready release
-- Kubernetes Helm chart
-- Full E2E test coverage
-- Grafana dashboards
+### Безопасность
+- Регистрация отключена (создание пользователей только администратором)
+- Сброс пароля по email отключён
+- Защита от перебора включена
+- Политика паролей: длина(8), цифры, заглавные, строчные, спецсимволы
+- Социальный логин: только привязка (без авторегистрации через Google)
+- Ограничение частоты запросов в OTP-аутентификаторе
+- CSP-заголовки в темах
+- Структурированное аудит-логирование
 
 ---
 
-## Version History
+## История версий
 
-| Version | Date | Description |
-|---------|------|-------------|
-| 1.0.0 | TBD | Initial production release |
-| 0.1.0 | 2025-01-26 | MVP development |
+| Версия | Дата | Описание |
+|--------|------|----------|
+| 0.1.0 | 26.01.2026 | Начальная разработка |

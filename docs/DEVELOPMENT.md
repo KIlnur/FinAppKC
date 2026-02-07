@@ -1,220 +1,221 @@
-# Development Guide
+# Руководство разработчика
 
-## Prerequisites
+## Требования
 
-- **JDK 21+** — для сборки Kotlin плагинов
-- **Node.js 20+** — для Keycloakify тем
-- **Docker & Docker Compose** — для локального окружения
-- **Git** — для version control
+- **JDK 21+** — для сборки Kotlin-плагинов
+- **Node.js 20+** — для Keycloakify-тем и webapp
+- **Docker и Docker Compose** — для локального окружения
+- **Git** — для контроля версий
 - **IDE** — IntelliJ IDEA (рекомендуется) или VS Code
 
-## Quick Start
+## Быстрый старт
 
-```bash
-# 1. Clone repository
-git clone https://github.com/your-org/finappkc.git
-cd finappkc
+```powershell
+# 1. Клонировать репозиторий
+git clone <repo-url>
+cd FinAppKC
 
-# 2. Build plugins
-cd kc-plugins
-./gradlew build
+# 2. Настроить Google OAuth (опционально)
+# Добавить GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET в infra/.env
 
-# 3. Build themes
-cd ../kc-themes
+# 3. Запустить всё одной командой
+.\start.ps1 -Full
+
+# 4. Webapp (отдельно)
+cd webapp
 npm install
-npm run build:keycloak
-
-# 4. Start development environment
-cd ../infra
-cp env.example .env
-docker-compose up -d
-
-# 5. Access Keycloak
-# Admin Console: http://localhost:8080/admin
-# Credentials: admin / admin
+npm run dev
 ```
 
-## Project Structure
+Скрипт `start.ps1` автоматически:
+1. Проверяет требования
+2. Собирает Kotlin-плагины (Gradle)
+3. Собирает Keycloakify-тему логина
+4. Копирует артефакты в `kc-server/providers/` и `kc-server/themes/`
+5. Запускает Docker Compose
+6. Ждёт готовности Keycloak
+7. Выполняет `init-realm.ps1` (scope, потоки, IDP, тестовый пользователь)
+
+## Структура проекта
 
 ```
 FinAppKC/
-├── kc-plugins/          # Kotlin SPI extensions
-│   ├── src/main/kotlin  # Plugin source code
-│   ├── src/test/kotlin  # Unit tests
-│   └── build.gradle.kts # Gradle build configuration
+├── kc-plugins/                 # Kotlin SPI-расширения
+│   ├── src/main/kotlin/        # Исходный код плагинов
+│   │   └── com/finappkc/
+│   │       ├── auth/           # RateLimitedOtpAuthenticator
+│   │       ├── events/         # AuditEventListener
+│   │       ├── rest/           # CustomRealmResource
+│   │       └── common/         # PluginConfig, общие утилиты
+│   ├── src/test/kotlin/        # Юнит-тесты
+│   ├── src/integrationTest/    # Интеграционные тесты (Testcontainers)
+│   └── build.gradle.kts        # Конфигурация сборки Gradle
 │
-├── kc-themes/           # Keycloakify themes
-│   ├── src/login/       # Login theme
-│   ├── src/account/     # Account theme
-│   └── package.json     # NPM configuration
+├── kc-themes/                  # Keycloakify-тема логина
+│   ├── src/keycloak-theme/
+│   │   └── login/              # Страницы логина (React/TypeScript)
+│   ├── vite.config.ts
+│   └── package.json
 │
-├── kc-server/           # Keycloak Docker configuration
-│   ├── conf/            # Keycloak configuration files
-│   └── Dockerfile       # Production Dockerfile
+├── kc-server/                  # Артефакты сервера Keycloak
+│   ├── providers/              # JAR плагинов (копируются start.ps1)
+│   └── themes/                 # Тема логина (копируется start.ps1)
 │
-├── infra/               # Infrastructure
+├── webapp/                     # Демо-фронтенд (React + oidc-spa)
+│   ├── src/
+│   │   ├── App.tsx             # Профиль, учётные данные, сессии, привязка
+│   │   └── main.tsx
+│   └── package.json
+│
+├── infra/                      # Docker Compose + мониторинг
 │   ├── docker-compose.yml
-│   └── env.example
+│   ├── .env
+│   ├── otel-collector-config.yaml
+│   └── monitoring/             # Конфигурации Prometheus, Loki, Grafana, Promtail
 │
-├── realm-config/        # Realm configurations
-│   └── base/            # Base realm export
+├── realm-config/               # Конфигурация realm
+│   ├── base/
+│   │   └── realm-export.json   # Базовый импорт (роли, группы, клиенты, SMTP)
+│   └── init-realm.ps1          # Пост-инициализация: scope, потоки, IDP, тестовый пользователь
 │
-├── scripts/             # Utility scripts
-│
-└── docs/                # Documentation
-    ├── ARCHITECTURE.md
-    ├── SECURITY.md
-    └── adr/             # Architecture Decision Records
+├── start.ps1                   # Скрипт запуска (PowerShell)
+├── start.bat                   # CMD-обёртка для start.ps1
+└── docs/                       # Документация
 ```
 
-## Development Workflow
+## Рабочий процесс разработки
 
-### Plugin Development
+### Разработка плагинов
 
-1. **Modify code** in `kc-plugins/src/main/kotlin/`
+1. **Изменить код** в `kc-plugins/src/main/kotlin/com/finappkc/`
 
-2. **Build**:
-   ```bash
+2. **Собрать**:
+   ```powershell
    cd kc-plugins
-   ./gradlew shadowJar
+   .\gradlew.bat shadowJar
    ```
 
-3. **Test**:
-   ```bash
-   ./gradlew test           # Unit tests
-   ./gradlew integrationTest # Integration tests
+3. **Протестировать**:
+   ```powershell
+   .\gradlew.bat test               # Юнит-тесты
+   .\gradlew.bat integrationTest    # Интеграционные тесты (нужен Docker)
    ```
 
-4. **Reload** in Keycloak:
-   ```bash
-   cd ../infra
-   docker-compose restart keycloak
+4. **Развернуть и перезагрузить**:
+   ```powershell
+   # Скопировать JAR и перезапустить Keycloak
+   Copy-Item build\libs\*-all.jar ..\kc-server\providers\finappkc-plugins.jar
+   docker restart finappkc-keycloak
    ```
 
-### Theme Development
+### Разработка темы
 
-1. **Start in dev mode**:
-   ```bash
+1. **Установить зависимости**:
+   ```powershell
    cd kc-themes
-   npm run dev
+   npm install
    ```
 
-2. **Develop with Storybook**:
-   ```bash
-   npm run storybook
+2. **Собрать тему логина**:
+   ```powershell
+   npm run build
+   npx keycloakify build
    ```
 
-3. **Build for Keycloak**:
-   ```bash
-   npm run build:keycloak
-   ```
+3. **Развернуть** (копирование из кеша Keycloakify):
+   Автоматически выполняется скриптом `start.ps1`.
 
-4. **Test**:
-   ```bash
-   npm run lint
-   npm run typecheck
-   npm run test
-   ```
+### Разработка Webapp
 
-### Adding a New Plugin
+```powershell
+cd webapp
+npm install
+npm run dev    # http://localhost:5173
+```
 
-1. Create provider class:
+Webapp подключается к Keycloak через OIDC (клиент `finapp-web`).
+
+### Добавление нового SPI-плагина
+
+1. Создать провайдер:
    ```kotlin
    // src/main/kotlin/com/finappkc/myplugin/MyProvider.kt
-   class MyProvider : SomeProviderSPI {
-       // Implementation
+   class MyProvider(private val session: KeycloakSession) : SomeProvider {
+       // Реализация
    }
    ```
 
-2. Create factory:
+2. Создать фабрику:
    ```kotlin
    // src/main/kotlin/com/finappkc/myplugin/MyProviderFactory.kt
-   class MyProviderFactory : SomeProviderFactorySPI {
-       override fun getId(): String = "my-provider"
-       override fun create(session: KeycloakSession) = MyProvider()
-       // ...
+   class MyProviderFactory : SomeProviderFactory {
+       override fun getId(): String = "finapp-my-provider"
+       override fun create(session: KeycloakSession) = MyProvider(session)
    }
    ```
 
-3. Register SPI:
+3. Зарегистрировать SPI:
    ```
    // src/main/resources/META-INF/services/org.keycloak.XXXProviderFactory
    com.finappkc.myplugin.MyProviderFactory
    ```
 
-4. Write tests:
-   ```kotlin
-   // src/test/kotlin/com/finappkc/myplugin/MyProviderTest.kt
-   class MyProviderTest {
-       @Test
-       fun `should do something`() { ... }
-   }
-   ```
+4. Написать тесты.
 
-### Adding a New Theme Page
+## Тестирование
 
-1. Create page component:
-   ```tsx
-   // src/login/pages/MyPage.tsx
-   export default function MyPage(props: PageProps<...>) {
-       // Implementation
-   }
-   ```
+### Юнит-тесты (плагины)
 
-2. Add to KcApp router:
-   ```tsx
-   // src/login/KcApp.tsx
-   case "my-page.ftl":
-       return <MyPage {...} />;
-   ```
-
-3. Add translations:
-   ```ts
-   // src/login/i18n.ts
-   en: {
-       "myPage.title": "My Page"
-   }
-   ```
-
-## Testing
-
-### Unit Tests (Plugins)
-
-```bash
+```powershell
 cd kc-plugins
-./gradlew test
-
-# With coverage
-./gradlew test jacocoTestReport
+.\gradlew.bat test
 ```
 
-### Integration Tests
+### Интеграционные тесты
 
-```bash
-# Requires Docker
-./gradlew integrationTest
+Используют Testcontainers для запуска Keycloak в Docker:
+
+```powershell
+cd kc-plugins
+.\gradlew.bat integrationTest
 ```
 
-### E2E Tests (Themes)
+### Ручное тестирование
 
-```bash
-cd kc-themes
-npm run test:e2e
-```
+1. Запустить: `.\start.ps1 -Full`
+2. Логин: http://localhost:8080/realms/finapp/account
+3. Тестовый пользователь: `sgadmin` / `Admin123!`
 
-### Manual Testing
+## Конфигурация realm
 
-1. Start environment: `docker-compose up -d`
-2. Create test user in Admin Console
-3. Test login flow at `http://localhost:8080/realms/finapp/account`
+### Двухэтапная настройка
 
-## Debugging
+**Этап 1 — realm-export.json** (при старте Keycloak):
+- Настройки realm (логин, защита от перебора, таймауты сессий)
+- Роли (admin, agent, merchant, user)
+- Группы (Administrators, Users)
+- Клиенты (finapp-web, finapp-api)
+- Политика паролей
+- Политика WebAuthn
+- SMTP (MailHog)
 
-### Plugin Debugging
+**Этап 2 — init-realm.ps1** (после старта Keycloak):
+- Клиентский scope `finapp-user-attributes` + мапперы
+- Поток аутентификации `browser-with-passkey`
+- Поток аутентификации `link-only-broker-login`
+- Google Identity Provider
+- Тестовый пользователь `sgadmin`
 
-1. Start Keycloak with debug port:
+### Почему два этапа?
+
+Keycloak `--import-realm` с `clientScopes` в JSON удаляет стандартные scope. Скрипт пост-инициализации добавляет кастомные настройки через Admin API без потери стандартных.
+
+## Отладка
+
+### Отладка плагинов
+
+1. Добавить debug-порт в `docker-compose.override.yml`:
    ```yaml
-   # docker-compose.override.yml
    services:
      keycloak:
        environment:
@@ -224,93 +225,71 @@ npm run test:e2e
          - "8787:8787"
    ```
 
-2. Attach debugger in IDE (Remote JVM Debug on port 8787)
+2. Подключить отладчик в IDE (Remote JVM Debug, порт 8787)
 
-### Theme Debugging
+### Логи Keycloak
 
-1. Use browser DevTools
-2. Enable source maps in vite.config.ts
-3. Use React DevTools extension
+```powershell
+# Следить за логами
+docker logs finappkc-keycloak -f
 
-### Log Analysis
-
-```bash
-# Follow Keycloak logs
-docker-compose logs -f keycloak
-
-# Filter by component
-docker-compose logs keycloak 2>&1 | grep "com.finappkc"
+# Фильтр по логам плагинов
+docker logs finappkc-keycloak 2>&1 | Select-String "finappkc"
 ```
 
-## Code Style
+### Отладка Webapp
+
+- Инструменты разработчика в браузере (Network, Console)
+- Расширение React DevTools
+- Инспекция токенов: встроенный инспектор токенов в webapp
+
+## Стиль кода
 
 ### Kotlin
-
-- Follow [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html)
-- Use ktlint: `./gradlew ktlintCheck`
+- [Соглашения по коду Kotlin](https://kotlinlang.org/docs/coding-conventions.html)
+- ktlint: `./gradlew ktlintCheck`
 
 ### TypeScript/React
+- ESLint + Prettier
+- `npm run lint`
 
-- ESLint + Prettier configured
-- Run: `npm run lint:fix && npm run format`
+## Решение проблем
 
-## Commit Messages
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat(plugin): add custom authenticator
-fix(theme): resolve login button styling
-docs: update development guide
-chore: update dependencies
+### Проблемы с Gradle
+```powershell
+.\gradlew.bat clean
+.\gradlew.bat --refresh-dependencies
 ```
 
-## Pull Request Process
-
-1. Create feature branch: `git checkout -b feature/my-feature`
-2. Make changes and commit
-3. Push: `git push origin feature/my-feature`
-4. Create PR against `develop`
-5. Wait for CI checks
-6. Get code review
-7. Squash and merge
-
-## Troubleshooting
-
-### Gradle Issues
-
-```bash
-# Clear cache
-./gradlew clean
-rm -rf ~/.gradle/caches
-
-# Refresh dependencies
-./gradlew --refresh-dependencies
-```
-
-### NPM Issues
-
-```bash
-# Clear cache
-npm cache clean --force
-rm -rf node_modules package-lock.json
+### Проблемы с NPM
+```powershell
+Remove-Item -Recurse -Force node_modules, package-lock.json
 npm install
 ```
 
-### Docker Issues
-
-```bash
-# Rebuild images
+### Проблемы с Docker
+```powershell
+# Пересборка
 docker-compose build --no-cache
 
-# Reset volumes
-docker-compose down -v
-docker-compose up -d
+# Сброс volumes
+.\start.ps1 -Stop
+docker volume rm finappkc-postgres-data finappkc-prometheus-data finappkc-loki-data finappkc-grafana-data
+.\start.ps1 -Full
 ```
 
-## Resources
+### Конфликты портов
+```powershell
+# Найти процесс на порту
+netstat -ano | findstr :8080
+taskkill /PID <pid> /F
+```
 
-- [Keycloak Server Development](https://www.keycloak.org/docs/latest/server_development/)
-- [Keycloakify Documentation](https://docs.keycloakify.dev/)
-- [Kotlin Documentation](https://kotlinlang.org/docs/home.html)
-- [React Documentation](https://react.dev/)
+Порт 9000 часто занят процессом `wslrelay.exe` — management-порт вынесен на **9001**.
+
+## Ресурсы
+
+- [Разработка сервера Keycloak](https://www.keycloak.org/docs/latest/server_development/)
+- [Документация Keycloakify](https://docs.keycloakify.dev/)
+- [Документация Kotlin](https://kotlinlang.org/docs/home.html)
+- [Документация React](https://react.dev/)

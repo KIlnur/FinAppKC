@@ -327,6 +327,31 @@ while (-not $ready -and $attempt -lt $maxAttempts) {
 Write-Host ""
 
 if ($ready) {
+    # ==================== Post-Init Realm Configuration ====================
+    Write-Host ""
+    Write-Step "Running realm post-initialization..."
+    
+    $initScript = Join-Path $ROOT_DIR "realm-config\init-realm.ps1"
+    if (Test-Path $initScript) {
+        $initParams = @{
+            KcUrl = "http://localhost:8080"
+            AdminUser = "admin"
+            AdminPassword = "admin"
+            CreateTestUser = $true
+        }
+        
+        # Pass Google credentials from .env if available
+        $envFile = Join-Path $INFRA_DIR ".env"
+        if (Test-Path $envFile) {
+            Get-Content $envFile | ForEach-Object {
+                if ($_ -match "^GOOGLE_CLIENT_ID=(.+)$") { $initParams.GoogleClientId = $matches[1] }
+                if ($_ -match "^GOOGLE_CLIENT_SECRET=(.+)$") { $initParams.GoogleClientSecret = $matches[1] }
+            }
+        }
+        
+        & $initScript @initParams
+    }
+    
     Write-Host ""
     Write-Host "============================================" -ForegroundColor Green
     Write-Host "  FinAppKC is ready!" -ForegroundColor Green

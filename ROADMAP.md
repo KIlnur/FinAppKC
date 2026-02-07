@@ -1,156 +1,113 @@
-# FinAppKC Roadmap
+# Дорожная карта FinAppKC
 
-## Phase 1: MVP (Current)
+## Фаза 1: MVP (текущая)
 
-### Completed ✅
+### Выполнено
 
-- [x] Repository structure and architecture documentation
-- [x] Kotlin SPI plugins
+- [x] Keycloak 26.1.4 с PostgreSQL
+- [x] Kotlin SPI-плагины
   - [x] Rate Limited OTP Authenticator
-  - [x] Audit Event Listener with webhooks
-  - [x] Profile Completion Required Action
-  - [x] Custom REST API endpoints
-- [x] Keycloakify themes
-  - [x] Login theme with modern UI
-  - [x] i18n support (EN, RU)
-  - [x] Accessibility basics
-- [x] Docker/Compose development environment
-- [x] CI/CD pipeline (GitHub Actions)
-- [x] Unit and integration tests
-- [x] Security hardening documentation
-- [x] Runbooks and development guide
+  - [x] Audit Event Listener (структурированное логирование)
+  - [x] Кастомные REST API-эндпоинты
+- [x] Keycloakify-тема логина (React/TypeScript, интернационализация EN/RU)
+- [x] Docker Compose с профилями (core, mail, monitoring, observability)
+- [x] Демо-приложение Webapp (профиль, учётные данные, привязка соц. сетей, сессии, инспектор токенов)
+- [x] WebAuthn Passwordless (Passkeys)
+- [x] TOTP (условный OTP)
+- [x] Google Social Login (только привязка)
+- [x] Роли и группы (admin, agent, merchant, user)
+- [x] Кастомный клиентский scope finapp-user-attributes
+- [x] Дашборд Grafana (аудит Keycloak)
+- [x] Стек мониторинга (Prometheus, Loki, Promtail, Grafana)
+- [x] Стек наблюдаемости (OpenTelemetry Collector, Jaeger)
+- [x] MailHog для тестирования email
+- [x] Скрипты запуска (start.ps1, start.bat)
+- [x] Скрипт пост-инициализации realm (init-realm.ps1)
+- [x] Документация
 
-### In Progress 🔄
+### Запланировано
 
-- [ ] E2E tests with Playwright
-- [ ] Helm chart for Kubernetes
-- [ ] Grafana dashboards for observability
+- [ ] E2E-тесты на Playwright
+- [ ] Helm-чарт для Kubernetes
+- [ ] Дополнительные дашборды Grafana (JVM, HTTP, БД)
 
 ---
 
-## Phase 2: Production Hardening
+## Фаза 2: Подготовка к production
 
-### Security
+### Безопасность
 
-- [ ] External secrets integration (Vault)
-- [ ] mTLS between services
-- [ ] Security scanning in CI (Trivy, SAST)
-- [ ] Penetration testing
-- [ ] SOC2 compliance checklist
+- [ ] Интеграция с внешним хранилищем секретов (Vault)
+- [ ] mTLS между сервисами
+- [ ] Сканирование безопасности в CI (Trivy, SAST)
+- [ ] Тестирование на проникновение
 
-### Scalability
+### Масштабируемость
 
-- [ ] Kubernetes Helm chart
+- [ ] Kubernetes Helm-чарт
 - [ ] Horizontal Pod Autoscaler
-- [ ] Database connection pooling (PgBouncer)
-- [ ] Redis for distributed rate limiting
-- [ ] CDN for theme assets
+- [ ] Пул соединений к БД (PgBouncer)
+- [ ] CDN для ресурсов тем
 
-### Observability
+### Наблюдаемость
 
-- [ ] Prometheus metrics dashboards
-- [ ] Jaeger tracing integration
-- [ ] Log aggregation (Loki/ELK)
-- [ ] Alerting rules (PagerDuty/Slack)
-- [ ] SLI/SLO definitions
+- [ ] Правила алертинга (PagerDuty/Slack)
+- [ ] Определение SLI/SLO
+- [ ] Дополнительные дашборды
 
 ---
 
-## Phase 3: Feature Expansion
+## Фаза 3: Расширение функциональности
 
-### Authentication
+### Аутентификация
 
-- [ ] WebAuthn/Passkeys support
-- [ ] Magic link authentication
-- [ ] Social login providers (Google, Microsoft, GitHub)
-- [ ] LDAP/AD federation
-- [ ] Step-up authentication
+- [ ] Аутентификация по magic link
+- [ ] Дополнительные социальные провайдеры (Microsoft, GitHub)
+- [ ] Федерация LDAP/AD
+- [ ] Пошаговая аутентификация (step-up)
 
-### User Management
+### Управление пользователями
 
-- [ ] Self-service password reset UI
-- [ ] User profile management UI
-- [ ] Organization/tenant management
-- [ ] Invitation flow
-- [ ] Account linking
+- [ ] Управление организациями/тенантами
+- [ ] Приглашения
+- [ ] Массовые операции с пользователями
 
-### Admin Features
+### Функции администрирования
 
-- [ ] Custom admin theme
-- [ ] Audit log viewer
-- [ ] User analytics dashboard
-- [ ] Bulk user operations
-- [ ] Custom reports
+- [ ] Кастомная тема администратора
+- [ ] UI просмотра аудит-логов
+- [ ] Дашборд аналитики пользователей
 
 ---
 
-## Phase 4: Enterprise Features
+## Фаза 4: Корпоративные функции
 
-### Multi-tenancy
+### Мультитенантность
 
-- [ ] Realm templates
-- [ ] Tenant isolation
-- [ ] Cross-realm federation
-- [ ] Tenant-specific branding
+- [ ] Шаблоны realm
+- [ ] Изоляция тенантов
+- [ ] Брендирование по тенантам
 
-### Compliance
+### Соответствие требованиям
 
-- [ ] GDPR compliance tools
-- [ ] Data export/deletion
-- [ ] Consent management
-- [ ] Audit log retention policies
+- [ ] Инструменты соответствия GDPR
+- [ ] Экспорт/удаление данных
+- [ ] Управление согласиями
+- [ ] Политики хранения аудит-логов
 
-### Integration
+### Интеграции
 
-- [ ] SCIM provisioning
-- [ ] SAML identity provider
-- [ ] Custom identity brokering
-- [ ] API gateway integration
+- [ ] Провижионинг SCIM
+- [ ] SAML Identity Provider
+- [ ] Интеграция с API-шлюзом
 
 ---
 
-## Technical Debt & Improvements
+## Технический долг и улучшения
 
-### Code Quality
-
-- [ ] Increase test coverage to 80%+
-- [ ] Add mutation testing
-- [ ] Performance benchmarks
-- [ ] Code documentation (KDoc/JSDoc)
-
-### DevOps
-
-- [ ] GitOps with ArgoCD
-- [ ] Canary deployments
-- [ ] Blue-green deployments
-- [ ] Disaster recovery plan
-
-### Documentation
-
-- [ ] API documentation (OpenAPI)
-- [ ] Architecture decision records (ongoing)
-- [ ] Troubleshooting guides
-- [ ] Video tutorials
-
----
-
-## Version Milestones
-
-| Version | Target | Features |
-|---------|--------|----------|
-| 1.0.0 | Q1 2025 | MVP - Basic plugins and themes |
-| 1.1.0 | Q2 2025 | Production hardening, Kubernetes |
-| 1.2.0 | Q3 2025 | WebAuthn, Social login |
-| 2.0.0 | Q4 2025 | Multi-tenancy, Enterprise features |
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose features and contribute.
-
-## Feedback
-
-- Create issues for bugs or feature requests
-- Join discussions for architectural decisions
-- Contact: team@finapp.com
+- [ ] Увеличить покрытие тестами до 80%+
+- [ ] Бенчмарки производительности
+- [ ] Документация кода (KDoc/JSDoc)
+- [ ] GitOps с ArgoCD
+- [ ] Канареечные развёртывания
+- [ ] Документация API (OpenAPI)

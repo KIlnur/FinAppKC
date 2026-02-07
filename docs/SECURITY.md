@@ -1,32 +1,45 @@
-# Security Hardening Checklist
+# Чеклист безопасности
 
-## Overview
+## Обзор
 
-Этот документ содержит чеклист безопасности для production развёртывания FinAppKC.
+Чеклист безопасности для production-развёртывания FinAppKC.
 
-## Pre-Deployment Checklist
+## Текущая конфигурация безопасности (разработка)
 
-### 1. Secrets Management
+| Функция | Статус | Описание |
+|---------|--------|----------|
+| Регистрация | Отключена | Пользователи создаются только администратором |
+| Сброс пароля | Отключён | Сброс пароля по email отключён |
+| Защита от перебора | Включена | failureFactor=5, ожидание=900с |
+| Политика паролей | Настроена | длина(8), цифры, заглавные, строчные, спецсимволы |
+| MFA: TOTP | Условный | Настраивается пользователем, проверяется при логине |
+| MFA: Passkeys | Включён | WebAuthn Passwordless, верификация пользователя preferred |
+| Социальный логин | Только привязка | Google OAuth, только привязка (не регистрация) |
+| SMTP | MailHog (разработка) | Реальный SMTP в production |
 
-- [ ] **Изменить admin credentials** — никогда не использовать `admin/admin` в production
-- [ ] **Сгенерировать сильные пароли** для всех сервисных аккаунтов
-- [ ] **Использовать secrets manager** (Vault, AWS Secrets Manager, K8s Secrets)
-- [ ] **Ротация секретов** — настроить автоматическую ротацию
-- [ ] **Не хранить секреты в репозитории** — проверить `.gitignore`
+## Чеклист перед развёртыванием
 
-```bash
+### 1. Управление секретами
+
+- [ ] Изменить учётные данные администратора (не `admin/admin`)
+- [ ] Сгенерировать сильные пароли для всех сервисов
+- [ ] Использовать менеджер секретов (Vault, AWS Secrets Manager, K8s Secrets)
+- [ ] Настроить ротацию секретов
+- [ ] Проверить `.gitignore` — нет секретов в репозитории
+
+```powershell
 # Генерация сильного пароля
-openssl rand -base64 32
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
 ```
 
-### 2. TLS Configuration
+### 2. Конфигурация TLS
 
-- [ ] **TLS 1.3 only** — отключить устаревшие протоколы
-- [ ] **Валидные сертификаты** — Let's Encrypt или corporate CA
-- [ ] **HSTS включён** — `Strict-Transport-Security` header
-- [ ] **Certificate pinning** для критичных клиентов (опционально)
+- [ ] Только TLS 1.3
+- [ ] Валидные сертификаты (Let's Encrypt или корпоративный CA)
+- [ ] HSTS включён
+- [ ] Закрепление сертификата для критичных клиентов (опционально)
 
-```yaml
+```
 # keycloak.conf для TLS
 https-certificate-file=/path/to/server.crt
 https-certificate-key-file=/path/to/server.key
@@ -34,162 +47,102 @@ https-protocols=TLSv1.3
 https-cipher-suites=TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256
 ```
 
-### 3. Network Security
+### 3. Сетевая безопасность
 
-- [ ] **Firewall rules** — ограничить доступ к портам
-- [ ] **Private network** для database и внутренних сервисов
-- [ ] **Rate limiting** на уровне load balancer
-- [ ] **DDoS protection** — CloudFlare или аналог
+- [ ] Правила файрвола — ограничить доступ к портам
+- [ ] Приватная сеть для базы данных и внутренних сервисов
+- [ ] Ограничение частоты запросов на уровне балансировщика
+- [ ] Защита от DDoS
 
 ```
-# Разрешённые порты
-443/tcp  - HTTPS (public)
-8443/tcp - Keycloak HTTPS (internal)
-5432/tcp - PostgreSQL (internal only)
+# Порты в production
+443/tcp  - HTTPS (публичный)
+9001/tcp - Keycloak Management (только внутренний)
+5432/tcp - PostgreSQL (только внутренний)
 ```
 
-### 4. Keycloak Configuration
+### 4. Конфигурация Keycloak
 
-- [ ] **Brute force protection** включена
-- [ ] **Password policy** настроена
-- [ ] **Session timeouts** оптимизированы
-- [ ] **CORS** ограничен допустимыми origins
-- [ ] **Redirect URI validation** строгая
+- [ ] Защита от перебора включена
+- [ ] Политика паролей настроена
+- [ ] Таймауты сессий оптимизированы
+- [ ] CORS ограничен допустимыми origins
+- [ ] Строгая валидация Redirect URI
+- [ ] Неиспользуемые потоки/клиенты удалены
 
-```json
-{
-  "bruteForceProtected": true,
-  "failureFactor": 5,
-  "maxFailureWaitSeconds": 900,
-  "passwordPolicy": "length(12) and digits(1) and upperCase(1) and lowerCase(1) and specialChars(1)"
-}
-```
+### 5. Безопасность базы данных
 
-### 5. Database Security
+- [ ] Отдельный пользователь для Keycloak (не admin)
+- [ ] Минимальные права
+- [ ] SSL для PostgreSQL
+- [ ] Регулярные бэкапы с шифрованием
+- [ ] Лимиты пула соединений
 
-- [ ] **Отдельный пользователь** для Keycloak (не admin)
-- [ ] **Минимальные права** — только необходимые permissions
-- [ ] **Encrypted connections** — SSL для PostgreSQL
-- [ ] **Регулярные backups** с шифрованием
-- [ ] **Connection pooling** limits настроены
+### 6. Заголовки и CSP
 
-```sql
--- Создание пользователя с минимальными правами
-CREATE USER keycloak WITH PASSWORD 'strong-password';
-GRANT CONNECT ON DATABASE keycloak TO keycloak;
-GRANT USAGE ON SCHEMA public TO keycloak;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO keycloak;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO keycloak;
-```
+- [ ] Content-Security-Policy настроен
+- [ ] X-Content-Type-Options: nosniff
+- [ ] X-Frame-Options: DENY или SAMEORIGIN
+- [ ] Referrer-Policy: no-referrer
+- [ ] Strict-Transport-Security
 
-### 6. Headers & CSP
+### 7. Логирование и мониторинг
 
-- [ ] **Content-Security-Policy** настроен
-- [ ] **X-Content-Type-Options**: nosniff
-- [ ] **X-Frame-Options**: DENY или SAMEORIGIN
-- [ ] **Referrer-Policy**: no-referrer
-- [ ] **Permissions-Policy** ограничивает features
-
-```json
-{
-  "browserSecurityHeaders": {
-    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
-    "xContentTypeOptions": "nosniff",
-    "xFrameOptions": "SAMEORIGIN",
-    "referrerPolicy": "strict-origin-when-cross-origin",
-    "xXSSProtection": "1; mode=block",
-    "strictTransportSecurity": "max-age=31536000; includeSubDomains"
-  }
-}
-```
-
-### 7. Logging & Monitoring
-
-- [ ] **Structured logging** включён (JSON)
-- [ ] **Audit events** записываются
-- [ ] **Log retention** policy настроена
-- [ ] **Alerting** на подозрительную активность
-- [ ] **SIEM integration** (при необходимости)
+- [ ] Структурированное логирование включено (JSON)
+- [ ] Аудит-события записываются (AuditEventListener)
+- [ ] Политика хранения логов
+- [ ] Алертинг на подозрительную активность
 
 ```yaml
 # Подозрительные события для алертов
-- Multiple LOGIN_ERROR from same IP
-- Unusual ADMIN_EVENT patterns
-- High rate of token requests
-- Password reset spikes
+- Множественные LOGIN_ERROR с одного IP
+- Необычные паттерны ADMIN_EVENT
+- Высокая частота запросов токенов
 ```
 
-### 8. Kubernetes Security (if applicable)
+### 8. Безопасность плагинов
 
-- [ ] **Pod Security Standards** (restricted)
-- [ ] **Network Policies** ограничивают трафик
-- [ ] **Resource limits** установлены
-- [ ] **ServiceAccount** с минимальными правами
-- [ ] **Secrets encryption** at rest
+- [ ] Валидация входных данных во всех плагинах
+- [ ] Нет чувствительных данных в логах
+- [ ] Ограничение частоты запросов (OTP-аутентификатор)
+- [ ] Обработка ошибок не раскрывает детали
 
-```yaml
-# Pod Security Context
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  fsGroup: 1000
-  seccompProfile:
-    type: RuntimeDefault
-  capabilities:
-    drop:
-      - ALL
-```
+### 9. Безопасность тем
 
-### 9. Plugin Security
+- [ ] Совместимость с CSP
+- [ ] Предотвращение XSS — корректное экранирование
+- [ ] Использование CSRF-токенов
+- [ ] Нет чувствительных данных в клиентском коде
 
-- [ ] **Input validation** во всех плагинах
-- [ ] **No sensitive data in logs**
-- [ ] **Secure webhook signatures** (HMAC)
-- [ ] **Rate limiting** в плагинах
-- [ ] **Error handling** не раскрывает детали
+## После развёртывания
 
-### 10. Theme Security
+### Регулярные задачи
 
-- [ ] **CSP compatible** — inline styles/scripts минимизированы
-- [ ] **XSS prevention** — proper escaping
-- [ ] **CSRF tokens** используются
-- [ ] **No sensitive data** в client-side коде
+- [ ] Сканирование уязвимостей (еженедельно)
+- [ ] Обновление зависимостей (ежемесячно)
+- [ ] Ревизия доступов (ежеквартально)
+- [ ] Тестирование на проникновение (ежегодно)
+- [ ] Тест восстановления из бэкапа (ежеквартально)
 
-## Post-Deployment Checklist
+### Реагирование на инциденты
 
-### Regular Tasks
+1. **Обнаружение** — мониторинг и алерты
+2. **Локализация** — изоляция затронутых систем
+3. **Расследование** — анализ логов
+4. **Устранение** — исправление уязвимости
+5. **Разбор** — документирование и улучшения
 
-- [ ] **Vulnerability scanning** (weekly)
-- [ ] **Dependency updates** (monthly)
-- [ ] **Access review** (quarterly)
-- [ ] **Penetration testing** (annually)
-- [ ] **Backup restoration test** (quarterly)
+## Маппинг OWASP Top 10
 
-### Incident Response
-
-1. **Detection** — мониторинг и алерты
-2. **Containment** — изоляция affected systems
-3. **Investigation** — анализ логов
-4. **Remediation** — исправление уязвимости
-5. **Post-mortem** — документирование и улучшения
-
-## OWASP Top 10 Mapping
-
-| OWASP Risk | Mitigation |
-|------------|------------|
-| A01 Broken Access Control | RBAC, session management, CORS |
-| A02 Cryptographic Failures | TLS 1.3, strong algorithms, secrets management |
-| A03 Injection | Input validation, parameterized queries |
-| A04 Insecure Design | Threat modeling, security requirements |
-| A05 Security Misconfiguration | Hardening checklist, automated checks |
-| A06 Vulnerable Components | Dependency scanning, updates |
-| A07 Authentication Failures | MFA, rate limiting, password policies |
-| A08 Software/Data Integrity | Signed artifacts, CI/CD security |
-| A09 Logging Failures | Structured logging, monitoring |
-| A10 SSRF | URL validation, network segmentation |
-
-## Resources
-
-- [Keycloak Security Documentation](https://www.keycloak.org/docs/latest/server_admin/#_security)
-- [OWASP Keycloak Guide](https://cheatsheetseries.owasp.org/cheatsheets/Keycloak_Security_Cheat_Sheet.html)
-- [CIS Benchmarks](https://www.cisecurity.org/benchmark/kubernetes)
+| Риск OWASP | Меры защиты |
+|------------|-------------|
+| A01 Нарушение контроля доступа | RBAC, управление сессиями, CORS |
+| A02 Криптографические ошибки | TLS 1.3, сильные алгоритмы, управление секретами |
+| A03 Инъекции | Валидация входных данных, параметризованные запросы |
+| A04 Небезопасный дизайн | Моделирование угроз, требования безопасности |
+| A05 Ошибки конфигурации | Чеклист безопасности, автоматические проверки |
+| A06 Уязвимые компоненты | Сканирование зависимостей, обновления |
+| A07 Ошибки аутентификации | MFA, ограничение частоты запросов, политики паролей |
+| A08 Целостность ПО и данных | Подписанные артефакты, безопасность CI/CD |
+| A09 Ошибки логирования | Структурированное логирование, мониторинг |
+| A10 SSRF | Валидация URL, сегментация сети |

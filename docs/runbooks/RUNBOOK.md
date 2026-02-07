@@ -1,376 +1,286 @@
-# FinAppKC Operations Runbook
+# Операционный runbook FinAppKC
 
-## Table of Contents
+## Содержание
 
-1. [Startup & Shutdown](#startup--shutdown)
-2. [Health Checks](#health-checks)
-3. [Common Issues](#common-issues)
-4. [Backup & Restore](#backup--restore)
-5. [Scaling](#scaling)
-6. [Troubleshooting](#troubleshooting)
-
----
-
-## Startup & Shutdown
-
-### Start Services (Development)
-
-```bash
-cd infra
-docker-compose up -d
-
-# Verify startup
-docker-compose ps
-docker-compose logs -f keycloak
-```
-
-### Stop Services
-
-```bash
-cd infra
-docker-compose down
-
-# With volume cleanup (DESTRUCTIVE)
-docker-compose down -v
-```
-
-### Production Start (Kubernetes)
-
-```bash
-# Apply configurations
-kubectl apply -f infra/k8s/
-
-# Verify
-kubectl get pods -n keycloak
-kubectl logs -f deployment/keycloak -n keycloak
-```
+1. [Запуск и остановка](#запуск-и-остановка)
+2. [Проверки здоровья](#проверки-здоровья)
+3. [Типичные проблемы](#типичные-проблемы)
+4. [Бэкап и восстановление](#бэкап-и-восстановление)
+5. [Масштабирование](#масштабирование)
+6. [Диагностика](#диагностика)
 
 ---
 
-## Health Checks
+## Запуск и остановка
 
-### Endpoints
+### Запуск сервисов (разработка)
 
-| Endpoint | Purpose | Expected |
-|----------|---------|----------|
-| `/health` | Overall health | 200 OK |
-| `/health/ready` | Readiness | 200 OK |
-| `/health/live` | Liveness | 200 OK |
-| `/metrics` | Prometheus metrics | 200 OK |
+```powershell
+# Базовый (Keycloak + PostgreSQL)
+.\start.ps1
 
-### Manual Check
+# Полный стек (все сервисы)
+.\start.ps1 -Full
 
-```bash
-# Health check
-curl -f http://localhost:8080/health/ready
+# Выборочно
+.\start.ps1 -WithMail              # + MailHog
+.\start.ps1 -WithMonitoring        # + Grafana, Prometheus, Loki
+.\start.ps1 -WithObservability      # + Jaeger, OTEL Collector
 
-# Metrics
-curl http://localhost:8080/metrics | grep keycloak_
-
-# Database connectivity
-docker-compose exec postgres pg_isready -U keycloak
+# Без пересборки
+.\start.ps1 -Full -SkipBuild
 ```
 
-### Kubernetes Probes
+Скрипт выполняет:
+1. Сборку Kotlin-плагинов (Gradle)
+2. Сборку Keycloakify-темы логина
+3. Копирование артефактов
+4. Запуск Docker Compose
+5. Ожидание готовности Keycloak
+6. Пост-инициализацию realm (init-realm.ps1)
+
+### Остановка сервисов
+
+```powershell
+.\start.ps1 -Stop
+
+# Или вручную с очисткой volumes
+cd infra
+docker-compose --profile mail --profile monitoring --profile observability down -v
+```
+
+### Статус
+
+```powershell
+.\start.ps1 -Status
+# или
+docker ps --filter "name=finappkc"
+```
+
+---
+
+## Проверки здоровья
+
+### Эндпоинты
+
+| Эндпоинт | Порт | Назначение | Ожидаемый ответ |
+|----------|------|------------|-----------------|
+| `/health` | 9001 | Общее здоровье | 200 OK |
+| `/health/ready` | 9001 | Готовность | 200 OK |
+| `/health/live` | 9001 | Живучесть | 200 OK |
+| `/metrics` | 9001 | Метрики Prometheus | 200 OK |
+
+> **Примечание**: Management-порт = **9001** (проброс с внутреннего 9000). Порт 9000 на хосте часто занят WSL.
+
+### Ручная проверка
+
+```powershell
+# Здоровье
+Invoke-WebRequest -Uri "http://localhost:9001/health/ready" -UseBasicParsing
+
+# Метрики
+Invoke-WebRequest -Uri "http://localhost:9001/metrics" -UseBasicParsing
+
+# База данных
+docker exec finappkc-postgres pg_isready -U keycloak
+```
+
+---
+
+## Типичные проблемы
+
+### Keycloak не стартует
+
+**Симптомы:** контейнер перезапускается, проверка здоровья не проходит
+
+**Шаги:**
+1. Проверить логи: `docker logs finappkc-keycloak --tail=50`
+2. Проверить базу данных: `docker exec finappkc-postgres pg_isready -U keycloak`
+3. Проверить переменные окружения в `infra/.env`
+4. Проверить JAR плагинов: `ls kc-server/providers/`
+
+**Частые причины:**
+- База данных не готова -> подождать или перезапустить
+- Сломанный JAR плагина -> пересобрать: `cd kc-plugins && .\gradlew.bat clean shadowJar`
+- Нехватка памяти -> увеличить лимиты контейнера
+
+### Тема логина не отображается
+
+**Симптомы:** стандартная тема Keycloak вместо кастомной
+
+**Шаги:**
+1. Проверить настройки realm: loginTheme должен быть `finappkc`
+2. Убедиться, что директория темы существует: `ls kc-server/themes/finappkc/login/`
+3. Пересобрать тему: `cd kc-themes && npm run build && npx keycloakify build`
+4. Перезапустить Keycloak: `docker restart finappkc-keycloak`
+
+### Плагин не загружается
+
+**Симптомы:** кастомный аутентификатор/слушатель недоступен
+
+**Шаги:**
+1. Проверить JAR: `ls kc-server/providers/finappkc-plugins.jar`
+2. Проверить логи: `docker logs finappkc-keycloak 2>&1 | Select-String "finappkc"`
+3. Проверить SPI service-файлы в JAR
+4. Пересобрать: `cd kc-plugins && .\gradlew.bat clean shadowJar`
+5. Скопировать и перезапустить
+
+### Порт 9001 не отвечает
+
+**Шаги:**
+1. Проверить запущен ли Keycloak: `docker ps | Select-String keycloak`
+2. Проверить проброс management-порта в `docker-compose.yml`
+3. Проверить конфликт портов: `netstat -ano | findstr :9001`
+
+### init-realm.ps1 не выполняется
+
+**Шаги:**
+1. Убедиться, что Keycloak полностью готов (проверка здоровья проходит)
+2. Проверить учётные данные администратора в `.env`
+3. Запустить вручную: `.\realm-config\init-realm.ps1 -GoogleClientId "..." -GoogleClientSecret "..."`
+4. Проверить логи на конкретные ошибки
+
+### MailHog не получает письма
+
+1. Убедиться, что MailHog запущен: `docker ps | Select-String mailhog`
+2. Проверить настройку SMTP в realm: host=`mailhog`, port=`1025`
+3. Убедиться, что профиль `mail` активен
+
+### Дашборд Grafana пустой
+
+1. Проверить цели Prometheus: http://localhost:9090/targets
+2. Проверить Loki: http://localhost:3100/ready
+3. Проверить uid источников данных в JSON дашборда (`prometheus`, `loki`)
+4. Убедиться, что Promtail собирает логи
+
+---
+
+## Бэкап и восстановление
+
+### Бэкап базы данных
+
+```powershell
+# Бэкап
+docker exec finappkc-postgres pg_dump -U keycloak keycloak > backup.sql
+
+# Сжатый бэкап
+docker exec finappkc-postgres pg_dump -U keycloak keycloak | gzip > backup.sql.gz
+```
+
+### Восстановление базы данных
+
+```powershell
+# Восстановление
+Get-Content backup.sql | docker exec -i finappkc-postgres psql -U keycloak keycloak
+```
+
+### Экспорт realm через Admin API
+
+```powershell
+# Получить токен администратора
+$tokenResponse = Invoke-RestMethod -Uri "http://localhost:8080/realms/master/protocol/openid-connect/token" `
+  -Method POST -ContentType "application/x-www-form-urlencoded" `
+  -Body "grant_type=password&client_id=admin-cli&username=admin&password=admin"
+$token = $tokenResponse.access_token
+
+# Экспорт realm
+$realm = Invoke-RestMethod -Uri "http://localhost:8080/admin/realms/finapp" `
+  -Headers @{ Authorization = "Bearer $token" }
+$realm | ConvertTo-Json -Depth 20 | Out-File "finapp-realm-backup.json"
+```
+
+---
+
+## Масштабирование
+
+### Горизонтальное масштабирование (Kubernetes)
 
 ```yaml
-livenessProbe:
-  httpGet:
-    path: /health/live
-    port: 8080
-  initialDelaySeconds: 60
-  periodSeconds: 30
-
-readinessProbe:
-  httpGet:
-    path: /health/ready
-    port: 8080
-  initialDelaySeconds: 30
-  periodSeconds: 10
-```
-
----
-
-## Common Issues
-
-### Issue: Keycloak Not Starting
-
-**Symptoms:** Container restarts, health check fails
-
-**Steps:**
-1. Check logs: `docker-compose logs keycloak`
-2. Verify database: `docker-compose exec postgres pg_isready`
-3. Check environment variables
-4. Verify disk space: `df -h`
-
-**Common Causes:**
-- Database not ready → wait or restart
-- Invalid configuration → check keycloak.conf
-- Out of memory → increase container limits
-
-### Issue: Login Failures
-
-**Symptoms:** Users cannot login, 401/403 errors
-
-**Steps:**
-1. Check event logs in Admin Console
-2. Verify client configuration
-3. Check realm settings
-4. Review authentication flow
-
-```bash
-# Get recent login events
-curl -H "Authorization: Bearer $TOKEN" \
-  "$KC_URL/admin/realms/finapp/events?type=LOGIN_ERROR"
-```
-
-### Issue: Plugin Not Loading
-
-**Symptoms:** Custom authenticator/listener not available
-
-**Steps:**
-1. Verify JAR in providers folder: `ls /opt/keycloak/providers/`
-2. Check Keycloak logs for SPI errors
-3. Verify SPI service files
-4. Rebuild Keycloak: `kc.sh build`
-
-```bash
-# Check loaded providers
-docker-compose exec keycloak /opt/keycloak/bin/kc.sh show-config
-```
-
-### Issue: Theme Not Displaying
-
-**Symptoms:** Default theme shows instead of custom
-
-**Steps:**
-1. Verify theme JAR: `ls /opt/keycloak/providers/*.jar`
-2. Check realm theme settings
-3. Clear theme cache
-4. Rebuild Keycloak
-
-```bash
-# Clear cache (development)
-docker-compose exec keycloak rm -rf /opt/keycloak/data/tmp/*
-docker-compose restart keycloak
-```
-
-### Issue: High Memory Usage
-
-**Symptoms:** OOM errors, slow performance
-
-**Steps:**
-1. Check memory: `docker stats keycloak`
-2. Review heap settings
-3. Check session count
-4. Analyze GC logs
-
-```bash
-# Set heap size
-JAVA_OPTS="-Xms512m -Xmx2g"
-```
-
----
-
-## Backup & Restore
-
-### Database Backup
-
-```bash
-# Backup
-docker-compose exec postgres pg_dump -U keycloak keycloak > backup_$(date +%Y%m%d).sql
-
-# Compressed backup
-docker-compose exec postgres pg_dump -U keycloak keycloak | gzip > backup_$(date +%Y%m%d).sql.gz
-```
-
-### Database Restore
-
-```bash
-# Restore
-docker-compose exec -T postgres psql -U keycloak keycloak < backup.sql
-
-# From compressed
-gunzip -c backup.sql.gz | docker-compose exec -T postgres psql -U keycloak keycloak
-```
-
-### Realm Export
-
-```bash
-# Export realm
-./scripts/export-realm.sh finapp realm-config/backups/
-
-# Or using Admin API
-curl -H "Authorization: Bearer $TOKEN" \
-  "$KC_URL/admin/realms/finapp" > finapp-realm-backup.json
-```
-
-### Realm Import
-
-```bash
-# Import at startup
-docker run -v ./realm.json:/opt/keycloak/data/import/realm.json \
-  keycloak start-dev --import-realm
-
-# Or via Admin API (partial)
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @finapp-realm.json \
-  "$KC_URL/admin/realms"
-```
-
----
-
-## Scaling
-
-### Horizontal Scaling
-
-```yaml
-# Kubernetes deployment
 spec:
   replicas: 3
 ```
 
-**Requirements:**
-- Shared database (PostgreSQL)
-- Distributed cache (Infinispan)
-- Session affinity or shared sessions
-- Load balancer
-
-### Infinispan Configuration
-
-```xml
-<!-- infinispan.xml -->
-<cache-container name="keycloak">
-  <transport lock-timeout="60000"/>
-  <distributed-cache name="sessions">
-    <encoding media-type="application/x-jboss-marshalling"/>
-  </distributed-cache>
-</cache-container>
-```
-
-### Database Scaling
-
-```yaml
-# PostgreSQL with read replicas
-primary:
-  host: pg-primary
-  port: 5432
-
-replicas:
-  - host: pg-replica-1
-    port: 5432
-  - host: pg-replica-2
-    port: 5432
-```
+**Требования:**
+- Общая база данных (PostgreSQL)
+- Распределённый кеш (Infinispan)
+- Привязка сессий или общие сессии
+- Балансировщик нагрузки
 
 ---
 
-## Troubleshooting
+## Диагностика
 
-### Enable Debug Logging
+### Включение отладочного логирования
 
-```bash
-# Temporary (environment variable)
-KC_LOG_LEVEL=DEBUG
-
-# Specific category
+```
 KC_LOG_LEVEL="INFO,org.keycloak.events:DEBUG,com.finappkc:DEBUG"
 ```
 
-### Common Log Messages
+### Получение токена администратора (PowerShell)
 
-| Message | Meaning | Action |
-|---------|---------|--------|
-| `ARJUNA012140` | Transaction timeout | Increase timeout or optimize query |
-| `Connection refused` | Database unavailable | Check PostgreSQL status |
-| `Invalid token` | JWT validation failed | Check keys, clock sync |
-| `Provider not found` | SPI not loaded | Rebuild, check service files |
-
-### Get Admin Token
-
-```bash
-TOKEN=$(curl -s -X POST "$KC_URL/realms/master/protocol/openid-connect/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password" \
-  -d "client_id=admin-cli" \
-  -d "username=admin" \
-  -d "password=admin" | jq -r '.access_token')
-
-echo $TOKEN
+```powershell
+$body = "grant_type=password&client_id=admin-cli&username=admin&password=admin"
+$resp = Invoke-RestMethod -Uri "http://localhost:8080/realms/master/protocol/openid-connect/token" `
+  -Method POST -ContentType "application/x-www-form-urlencoded" -Body $body
+$token = $resp.access_token
 ```
 
-### Useful Admin API Calls
+### Полезные вызовы Admin API
 
-```bash
-# List realms
-curl -H "Authorization: Bearer $TOKEN" "$KC_URL/admin/realms"
+```powershell
+$headers = @{ Authorization = "Bearer $token" }
 
-# Get users
-curl -H "Authorization: Bearer $TOKEN" "$KC_URL/admin/realms/finapp/users"
+# Список пользователей
+Invoke-RestMethod -Uri "http://localhost:8080/admin/realms/finapp/users" -Headers $headers
 
-# Get events
-curl -H "Authorization: Bearer $TOKEN" "$KC_URL/admin/realms/finapp/events"
+# Получить события
+Invoke-RestMethod -Uri "http://localhost:8080/admin/realms/finapp/events" -Headers $headers
 
-# Server info
-curl -H "Authorization: Bearer $TOKEN" "$KC_URL/admin/serverinfo"
+# Конфигурация realm
+Invoke-RestMethod -Uri "http://localhost:8080/admin/realms/finapp" -Headers $headers
 ```
 
-### Container Shell Access
+### Доступ к контейнеру
 
-```bash
-# Keycloak
-docker-compose exec keycloak bash
+```powershell
+docker exec -it finappkc-keycloak bash
+docker exec -it finappkc-postgres psql -U keycloak
+```
 
-# PostgreSQL
-docker-compose exec postgres psql -U keycloak
+### Полный сброс
+
+```powershell
+.\start.ps1 -Stop
+cd infra
+docker-compose --profile mail --profile monitoring --profile observability down -v
+cd ..
+.\start.ps1 -Full -Clean
 ```
 
 ---
 
-## Emergency Procedures
+## Экстренные процедуры
 
-### Emergency Admin Access
+### Экстренный доступ администратора
 
-If admin account is locked:
+Если аккаунт администратора заблокирован:
 
 ```sql
--- Connect to PostgreSQL
--- Reset admin password
-UPDATE credential 
-SET secret_data = '{"value":"...","salt":"..."}' 
-WHERE user_id = (SELECT id FROM user_entity WHERE username = 'admin');
+-- Подключиться к PostgreSQL
+docker exec -it finappkc-postgres psql -U keycloak
+
+-- Найти пользователя admin
+SELECT id, username FROM user_entity WHERE realm_id = 'master' AND username = 'admin';
 ```
 
-### Service Recovery
+### Восстановление сервиса
 
-```bash
-# Full restart
-docker-compose down
-docker-compose up -d
+```powershell
+# Полный перезапуск
+.\start.ps1 -Stop
+.\start.ps1 -Full -SkipBuild
 
-# Clear all caches
-docker-compose exec keycloak rm -rf /opt/keycloak/data/tmp/*
-docker-compose restart keycloak
+# Очистка кешей
+docker exec finappkc-keycloak rm -rf /opt/keycloak/data/tmp/*
+docker restart finappkc-keycloak
 ```
-
-### Rollback
-
-```bash
-# Rollback to previous image
-docker-compose pull keycloak:previous-version
-docker-compose up -d keycloak
-
-# Restore database backup
-./scripts/restore-db.sh backup_20250126.sql
-```
-
----
-
-## Contacts
-
-| Role | Contact |
-|------|---------|
-| On-call | oncall@company.com |
-| Security | security@company.com |
-| Database | dba@company.com |

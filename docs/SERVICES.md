@@ -1,35 +1,35 @@
-# FinAppKC Services Guide
+# Руководство по сервисам FinAppKC
 
 ## Обзор архитектуры
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         FinAppKC Stack                               │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
-│  │  Keycloak   │───▶│ PostgreSQL  │    │   MailHog   │             │
-│  │   :8080     │    │   :5432     │    │  :8025/1025 │             │
-│  │   :9000     │    │             │    │             │             │
-│  └─────────────┘    └─────────────┘    └─────────────┘             │
-│        │                                     ▲                       │
-│        │              ┌──────────────────────┘                       │
-│        │              │ SMTP                                         │
-│        ▼              │                                              │
-│  ┌─────────────┐    ┌─┴───────────┐    ┌─────────────┐             │
-│  │ Prometheus  │───▶│   Grafana   │    │    Loki     │             │
-│  │   :9090     │    │   :3000     │◀───│   :3100     │             │
-│  └─────────────┘    └─────────────┘    └─────────────┘             │
-│        │                                     ▲                       │
-│        │              ┌──────────────────────┘                       │
-│        ▼              │                                              │
-│  ┌─────────────┐    ┌─┴───────────┐    ┌─────────────┐             │
-│  │  Postgres   │    │  Promtail   │    │   Jaeger    │             │
-│  │  Exporter   │    │             │    │  :16686     │             │
-│  │   :9187     │    │             │    │             │             │
-│  └─────────────┘    └─────────────┘    └─────────────┘             │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        FinAppKC Stack                            │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  Keycloak   │───>│ PostgreSQL  │    │   MailHog   │         │
+│  │  :8080      │    │   :5432     │    │ :8025/:1025 │         │
+│  │  :9001 mgmt │    │             │    │             │         │
+│  └──────┬──────┘    └─────────────┘    └─────────────┘         │
+│         │                                                       │
+│  ┌──────┴──────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │ Prometheus  │───>│   Grafana   │    │    Loki     │         │
+│  │   :9090     │    │   :3000     │<───│   :3100     │         │
+│  └─────────────┘    └─────────────┘    └─────────────┘         │
+│         │                                     ▲                 │
+│  ┌──────┴──────┐    ┌─────────────┐    ┌──────┴──────┐         │
+│  │  Postgres   │    │  Promtail   │───>│   Jaeger    │         │
+│  │  Exporter   │    │             │    │  :16686     │         │
+│  │   :9187     │    │             │    │             │         │
+│  └─────────────┘    └─────────────┘    └─────────────┘         │
+│                                                                  │
+│  ┌─────────────┐    ┌─────────────┐                             │
+│  │   Webapp    │    │ OTEL Coll.  │                             │
+│  │   :5173     │    │ :4317/:4318 │                             │
+│  └─────────────┘    └─────────────┘                             │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Запуск сервисов
@@ -40,7 +40,7 @@
 ```
 Включает: **Keycloak** + **PostgreSQL**
 
-### С email-тестированием
+### С тестированием email
 ```powershell
 .\start.ps1 -WithMail
 ```
@@ -62,113 +62,103 @@
 ```powershell
 .\start.ps1 -Full
 ```
-Все сервисы
+Все сервисы (10 контейнеров)
 
 ## Сервисы
 
-### Core Services
+### Основные сервисы
 
 | Сервис | Порт | URL | Описание |
 |--------|------|-----|----------|
-| **Keycloak** | 8080 | http://localhost:8080 | Identity Provider |
-| **Keycloak Management** | 9000 | http://localhost:9000 | Health, Metrics |
-| **PostgreSQL** | 5432 | - | База данных |
+| **Keycloak** | 8080 | http://localhost:8080 | Identity Provider (26.1.4) |
+| **Keycloak Management** | 9001 | http://localhost:9001/health | Здоровье, метрики |
+| **PostgreSQL** | 5432 | — | База данных (16-alpine) |
 
-### Email Testing
-
-| Сервис | Порт | URL | Описание |
-|--------|------|-----|----------|
-| **MailHog Web** | 8025 | http://localhost:8025 | Просмотр email |
-| **MailHog SMTP** | 1025 | - | SMTP сервер |
-
-### Monitoring
+### Тестирование email (профиль: `mail`)
 
 | Сервис | Порт | URL | Описание |
 |--------|------|-----|----------|
-| **Grafana** | 3000 | http://localhost:3000 | Dashboards |
+| **MailHog Web** | 8025 | http://localhost:8025 | Просмотр писем |
+| **MailHog SMTP** | 1025 | — | SMTP-сервер |
+
+### Мониторинг (профиль: `monitoring`)
+
+| Сервис | Порт | URL | Описание |
+|--------|------|-----|----------|
+| **Grafana** | 3000 | http://localhost:3000 | Дашборды (admin/admin) |
 | **Prometheus** | 9090 | http://localhost:9090 | Метрики |
 | **Loki** | 3100 | http://localhost:3100 | Логи |
-| **PostgreSQL Exporter** | 9187 | - | Метрики БД |
+| **Promtail** | — | — | Сбор логов контейнеров |
+| **PostgreSQL Exporter** | 9187 | — | Метрики БД |
 
-### Observability
+### Наблюдаемость (профиль: `observability`)
 
 | Сервис | Порт | URL | Описание |
 |--------|------|-----|----------|
 | **Jaeger** | 16686 | http://localhost:16686 | Трассировка |
-| **OTLP gRPC** | 4317 | - | OpenTelemetry |
-| **OTLP HTTP** | 4318 | - | OpenTelemetry |
+| **OTEL Collector** | 4317, 4318 | — | OpenTelemetry |
 
 ## Команды управления
 
 ```powershell
-# Статус всех сервисов
+# Статус
 .\start.ps1 -Status
 
-# Логи всех сервисов
+# Логи Keycloak
 .\start.ps1 -Logs
 
-# Остановить всё
+# Остановить
 .\start.ps1 -Stop
 
 # Логи конкретного сервиса
 docker logs finappkc-keycloak -f
-docker logs finappkc-mailhog -f
 docker logs finappkc-grafana -f
 
-# Перезапуск сервиса
+# Перезапуск
 docker restart finappkc-keycloak
-
-# Просмотр метрик Keycloak
-curl http://localhost:9000/metrics
 ```
 
 ## Учётные данные
 
-| Сервис | Username | Password |
-|--------|----------|----------|
-| **Keycloak Admin** | admin | admin |
+| Сервис | Логин | Пароль |
+|--------|-------|--------|
+| **Keycloak (администратор)** | admin | admin |
+| **Keycloak (тестовый пользователь)** | sgadmin | Admin123! |
 | **Grafana** | admin | admin |
 
-## Dashboards
+## Скрипт пост-инициализации
 
-После запуска с `-WithMonitoring`:
+После старта Keycloak автоматически выполняется `realm-config/init-realm.ps1`, который:
 
-| Dashboard | URL | Описание |
-|-----------|-----|----------|
-| **Keycloak Audit** | http://localhost:3000/d/keycloak-audit | Логины, ошибки, события |
-| **Keycloak System** | http://localhost:3000/d/keycloak-system | JVM, HTTP, DB connections |
+1. Создаёт клиентский scope `finapp-user-attributes` (мапперы: phone, department, employee_id, merchant_id, groups)
+2. Назначает scope клиенту `finapp-web`
+3. Создаёт поток `browser-with-passkey` (WebAuthn Passwordless + Cookie + IDP + логин/пароль + условный OTP)
+4. Создаёт поток `link-only-broker-login` (блокирует регистрацию через социальные сети)
+5. Настраивает Google Identity Provider (если заданы `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` в `.env`)
+6. Создаёт тестового пользователя `sgadmin` с ролью `admin`
 
-## Структура директорий
-
+Ручной запуск:
+```powershell
+.\realm-config\init-realm.ps1 -GoogleClientId "..." -GoogleClientSecret "..."
 ```
-infra/
-├── docker-compose.yml          # Основной compose файл
-├── docker-compose.monitoring.yml # Standalone мониторинг
-├── env.example                 # Пример переменных окружения
-├── .env                        # Ваши настройки (не в git)
-├── init-scripts/               # SQL скрипты инициализации
-├── otel-collector-config.yaml  # Конфигурация OpenTelemetry
-└── monitoring/
-    ├── prometheus/
-    │   └── prometheus.yml      # Конфигурация Prometheus
-    ├── loki/
-    │   └── loki-config.yml     # Конфигурация Loki
-    ├── promtail/
-    │   └── promtail-config.yml # Конфигурация Promtail
-    └── grafana/
-        ├── provisioning/
-        │   ├── datasources/    # Источники данных
-        │   └── dashboards/     # Провижионинг dashboards
-        └── dashboards/         # JSON dashboards
-```
+
+## Дашборды (Grafana)
+
+| Дашборд | URL | Описание |
+|---------|-----|----------|
+| **Keycloak Audit** | http://localhost:3000/d/keycloak-audit | Логины, ошибки, события, JVM |
+
+Источники данных:
+- **Prometheus** — метрики Keycloak (JVM, кеш, сессии, аптайм)
+- **Loki** — логи контейнеров, аудит-события
 
 ## Порты (сводная таблица)
 
 | Порт | Сервис | Профиль |
 |------|--------|---------|
-| 8080 | Keycloak HTTP | - |
-| 9000 | Keycloak Management | - |
-| 5432 | PostgreSQL | - |
+| 8080 | Keycloak HTTP | — |
+| 9001 | Keycloak Management | — |
+| 5432 | PostgreSQL | — |
 | 1025 | MailHog SMTP | mail |
 | 8025 | MailHog Web | mail |
 | 3000 | Grafana | monitoring |
@@ -178,30 +168,48 @@ infra/
 | 16686 | Jaeger UI | observability |
 | 4317 | OTLP gRPC | observability |
 | 4318 | OTLP HTTP | observability |
+| 5173 | Webapp (dev-сервер) | ручной запуск |
 
-## Troubleshooting
+## Структура директорий
 
-### Порт занят
-```powershell
-# Найти процесс
-netstat -ano | findstr :8080
-
-# Убить процесс по PID
-taskkill /PID <pid> /F
 ```
+infra/
+├── docker-compose.yml              # Основной compose-файл
+├── .env                            # Переменные окружения
+├── otel-collector-config.yaml      # Конфигурация OpenTelemetry
+└── monitoring/
+    ├── prometheus/
+    │   └── prometheus.yml          # Конфигурация Prometheus
+    ├── loki/
+    │   └── loki-config.yml         # Конфигурация Loki
+    ├── promtail/
+    │   └── promtail-config.yml     # Конфигурация Promtail
+    └── grafana/
+        ├── provisioning/
+        │   ├── datasources/        # Prometheus + Loki
+        │   └── dashboards/         # Провижионинг дашбордов
+        └── dashboards/             # JSON-дашборды
+```
+
+## Решение проблем
+
+### Порт 9001 занят (WSL)
+Порт 9000 часто занят процессом `wslrelay.exe`, поэтому management-порт = **9001**.
 
 ### Keycloak не стартует
 ```powershell
-# Проверить логи
-docker logs finappkc-keycloak
-
-# Проверить зависимости
-docker logs finappkc-postgres
+docker logs finappkc-keycloak --tail=50
+docker logs finappkc-postgres --tail=20
 ```
 
-### Очистить все данные
+### Метрики не отображаются в Grafana
+1. Проверьте цели Prometheus: http://localhost:9090/targets
+2. Цель Keycloak должна быть `keycloak:9000` (внутренний порт)
+3. Проверьте uid источников данных в JSON дашборда (`prometheus`, `loki`)
+
+### Полная очистка
 ```powershell
 .\start.ps1 -Stop
 docker volume rm finappkc-postgres-data finappkc-prometheus-data finappkc-loki-data finappkc-grafana-data
-.\start.ps1
+.\start.ps1 -Full
 ```

@@ -1,251 +1,233 @@
-# FinAppKC - Enterprise Identity Provider Architecture
+# Архитектура FinAppKC
 
-## Overview
+## Обзор
 
-FinAppKC — корпоративный Identity Provider на базе Keycloak 25.x (Quarkus distribution),
-расширенный кастомными плагинами на Kotlin и темами через Keycloakify.
+FinAppKC — корпоративный Identity Provider на базе **Keycloak 26.1.4** (дистрибутив Quarkus), расширенный кастомными плагинами на Kotlin и темой логина через Keycloakify.
 
-## High-Level Architecture
+## Высокоуровневая архитектура
 
 ```mermaid
 graph TB
-    subgraph "Client Applications"
-        WEB[Web App]
-        MOBILE[Mobile App]
-        API[API Clients]
+    subgraph "Клиентские приложения"
+        WEBAPP[Webapp :5173]
+        API[API-клиенты]
     end
 
-    subgraph "Load Balancer / Ingress"
-        LB[NGINX / K8s Ingress]
-    end
-
-    subgraph "Keycloak Cluster"
-        KC1[Keycloak Node 1]
-        KC2[Keycloak Node 2]
+    subgraph "Identity Provider"
+        KC[Keycloak 26.1.4<br/>:8080 / :9001]
         
-        subgraph "Custom Extensions"
-            AUTH[Custom Authenticator]
-            EVT[Event Listener]
-            RA[Required Actions]
-            REST[REST Resources]
+        subgraph "Кастомные расширения"
+            AUTH[RateLimitedOtpAuthenticator]
+            EVT[AuditEventListener]
+            REST[CustomRealmResource]
         end
         
-        subgraph "Custom Themes"
-            LOGIN[Login Theme]
-            ACCOUNT[Account Theme]
+        subgraph "Кастомные темы"
+            LOGIN[Тема логина<br/>Keycloakify]
         end
     end
 
-    subgraph "Data Layer"
-        PG[(PostgreSQL)]
-        CACHE[(Infinispan Cache)]
+    subgraph "Слой данных"
+        PG[(PostgreSQL 16)]
     end
 
-    subgraph "Observability"
-        OTEL[OpenTelemetry Collector]
-        PROM[Prometheus]
-        LOKI[Loki / ELK]
-        JAEGER[Jaeger]
+    subgraph "Внешние сервисы"
+        GOOGLE[Google OAuth]
+        SMTP[MailHog / SMTP]
     end
 
-    subgraph "External Services"
-        SMTP[SMTP Server]
-        WEBHOOK[Webhook Endpoints]
-        LDAP[LDAP / AD]
+    subgraph "Мониторинг"
+        PROM[Prometheus :9090]
+        GRAFANA[Grafana :3000]
+        LOKI[Loki :3100]
+        JAEGER[Jaeger :16686]
     end
 
-    WEB --> LB
-    MOBILE --> LB
-    API --> LB
-    
-    LB --> KC1
-    LB --> KC2
-    
-    KC1 --> PG
-    KC2 --> PG
-    KC1 <--> CACHE
-    KC2 <--> CACHE
-    
-    KC1 --> OTEL
-    KC2 --> OTEL
-    
-    OTEL --> PROM
-    OTEL --> LOKI
-    OTEL --> JAEGER
-    
-    KC1 --> SMTP
-    KC1 --> WEBHOOK
-    KC1 --> LDAP
+    WEBAPP --> KC
+    API --> KC
+    KC --> PG
+    KC --> GOOGLE
+    KC --> SMTP
+    KC --> PROM
+    LOKI --> GRAFANA
+    PROM --> GRAFANA
 ```
 
-## Component Architecture
+## Архитектура компонентов
 
-```mermaid
-graph LR
-    subgraph "Repository Structure"
-        ROOT[FinAppKC]
-        
-        ROOT --> KCS[kc-server]
-        ROOT --> KCP[kc-plugins]
-        ROOT --> KCT[kc-themes]
-        ROOT --> INFRA[infra]
-        ROOT --> DOCS[docs]
-        ROOT --> GH[.github]
-        
-        KCS --> |Dockerfile| IMG[Docker Image]
-        KCP --> |Gradle Build| JAR[Plugins JAR]
-        KCT --> |npm build| THEME[Theme JAR]
-        
-        JAR --> IMG
-        THEME --> IMG
-    end
+```
+FinAppKC/
+├── kc-plugins/          # Kotlin SPI-расширения (Gradle)
+│   ├── auth/            # RateLimitedOtpAuthenticator
+│   ├── events/          # AuditEventListener (структурированное логирование)
+│   ├── rest/            # Кастомные REST-эндпоинты
+│   └── common/          # PluginConfig, общие утилиты
+│
+├── kc-themes/           # Keycloakify React-тема логина
+│   └── login/           # Кастомные страницы логина
+│
+├── webapp/              # Демо-фронтенд (React + oidc-spa)
+│   └── App.tsx          # Профиль, учётные данные, привязка, сессии
+│
+├── realm-config/        # Конфигурация realm
+│   ├── base/realm-export.json  # Базовый импорт
+│   └── init-realm.ps1          # Пост-инициализация через Admin API
+│
+└── infra/               # Docker Compose + конфигурации мониторинга
 ```
 
-## Data Flow - Authentication
+## Потоки аутентификации
+
+### Браузерный поток (`browser-with-passkey`)
+
+```
+Cookie ──> (аутентифицирован? готово)
+  │
+  ├── WebAuthn Passwordless (Passkey) ──> готово
+  │
+  ├── Перенаправление Identity Provider (Google) ──> link-only-broker-login
+  │
+  └── Форма логина/пароля
+        └── Условный OTP (если настроен)
+```
+
+### Поток социального логина (`link-only-broker-login`)
+
+Google Identity Provider настроен в режиме `link-only`. Новые пользователи **не** регистрируются автоматически — социальный аккаунт может привязать только существующий пользователь.
+
+### Привязка аккаунтов через Webapp
+
+Webapp реализует привязку социальных аккаунтов напрямую через эндпоинт:
+```
+/realms/{realm}/broker/{provider}/link?client_id=...&redirect_uri=...&nonce=...&hash=...
+```
+Хеш вычисляется как `SHA-256(nonce + sessionId + clientId + provider)`.
+
+## Поток данных — аутентификация
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Browser
+    participant Пользователь
+    participant Браузер
     participant Keycloak
-    participant CustomAuth as Custom Authenticator
-    participant EventListener
-    participant Database
-    participant Webhook
+    participant AuditListener
+    participant PostgreSQL
 
-    User->>Browser: Access Protected Resource
-    Browser->>Keycloak: Redirect to /auth
-    Keycloak->>Browser: Login Page (Custom Theme)
-    User->>Browser: Enter Credentials
-    Browser->>Keycloak: POST /auth
+    Пользователь->>Браузер: Доступ к защищённому ресурсу
+    Браузер->>Keycloak: Перенаправление на /auth
+    Keycloak->>Браузер: Страница логина (кастомная тема)
+    Пользователь->>Браузер: Ввод учётных данных / Passkey
+    Браузер->>Keycloak: POST учётных данных
     
-    Keycloak->>CustomAuth: authenticate()
-    CustomAuth->>CustomAuth: Validate + Custom Logic
-    CustomAuth->>Keycloak: SUCCESS/FAILURE
-    
-    alt Authentication Success
-        Keycloak->>EventListener: onEvent(LOGIN)
-        EventListener->>Database: Log Audit Event
-        EventListener->>Webhook: Send Notification (async)
-        Keycloak->>Browser: Redirect with Code
-        Browser->>Keycloak: Exchange Code for Tokens
-        Keycloak->>Browser: Access + Refresh Tokens
-    else Authentication Failure
-        Keycloak->>EventListener: onEvent(LOGIN_ERROR)
-        EventListener->>Database: Log Failed Attempt
-        Keycloak->>Browser: Error Page
+    alt Успешная аутентификация
+        Keycloak->>AuditListener: onEvent(LOGIN)
+        AuditListener->>AuditListener: Структурированный JSON-лог
+        Keycloak->>Браузер: Перенаправление с кодом авторизации
+        Браузер->>Keycloak: Обмен кода на токены
+        Keycloak->>Браузер: Access + Refresh + ID токены
+    else Ошибка аутентификации
+        Keycloak->>AuditListener: onEvent(LOGIN_ERROR)
+        AuditListener->>AuditListener: Логирование неудачной попытки
+        Keycloak->>Браузер: Страница ошибки
     end
 ```
 
-## Technology Stack
+## Стек технологий
 
-| Component | Technology | Version | Justification |
-|-----------|------------|---------|---------------|
-| IDP Core | Keycloak | 25.x | Industry standard, active development |
-| Runtime | Quarkus | Native | Better startup, lower memory |
-| Database | PostgreSQL | 16.x | Mature, reliable, KC default |
-| Plugins Language | Kotlin | 1.9.x | Null-safety, concise, JVM compatible |
-| Build System | Gradle | 8.x | Better Kotlin support, faster builds |
-| Themes | Keycloakify | 10.x | Type-safe, React-based, modern tooling |
-| Container | Docker | Multi-stage | Reproducible builds |
-| Orchestration | Kubernetes/Helm | Latest | Production scalability |
-| Observability | OpenTelemetry | 1.x | Vendor-neutral, comprehensive |
-| CI/CD | GitHub Actions | - | Wide adoption, good ecosystem |
+| Компонент | Технология | Версия |
+|-----------|------------|--------|
+| Ядро IDP | Keycloak (Quarkus) | 26.1.4 |
+| База данных | PostgreSQL | 16-alpine |
+| Плагины | Kotlin + Gradle | JDK 21 |
+| Тема логина | Keycloakify (React) | v11.x |
+| Тема аккаунта | Стандартная Keycloak | keycloak.v3 |
+| Webapp | React + TypeScript + oidc-spa | — |
+| Контейнеры | Docker Compose | профили |
+| Мониторинг | Prometheus + Grafana + Loki | — |
+| Трассировка | OpenTelemetry + Jaeger | — |
+| Email (разработка) | MailHog | — |
+| Социальный логин | Google OAuth 2.0 | — |
+| 2FA | TOTP + WebAuthn Passwordless | — |
 
-## Security Architecture
+## Конфигурация realm
 
-```mermaid
-graph TB
-    subgraph "Security Layers"
-        L1[TLS Termination at LB]
-        L2[mTLS between services]
-        L3[RBAC in Keycloak]
-        L4[CSP Headers in Themes]
-        L5[Secret Management]
-        L6[Audit Logging]
-    end
-    
-    L1 --> L2 --> L3 --> L4 --> L5 --> L6
-```
+### Роли
 
-### Security Controls
+| Роль | Описание |
+|------|----------|
+| admin | Администратор |
+| agent | Агент |
+| merchant | Мерчант |
+| user | Обычный пользователь |
 
-1. **Network Security**
-   - TLS 1.3 only
-   - Strict CSP headers
-   - HSTS enabled
+### Группы
 
-2. **Authentication**
-   - Brute-force protection
-   - Password policies
-   - MFA support
+| Группа | Описание |
+|--------|----------|
+| Administrators | Группа администраторов |
+| Users | Группа пользователей |
 
-3. **Authorization**
-   - Fine-grained RBAC
-   - Client scopes
-   - Audience validation
+### Клиенты
 
-4. **Secrets Management**
-   - No secrets in repo
-   - External secrets (Vault/K8s Secrets)
-   - Rotation policies
+| Клиент | Тип | Описание |
+|--------|-----|----------|
+| finapp-web | public | SPA-фронтенд (webapp) |
+| finapp-api | confidential | Бэкенд API |
 
-5. **Audit & Compliance**
-   - All events logged
-   - Structured JSON logs
-   - Retention policies
+### Кастомный клиентский scope: `finapp-user-attributes`
 
-## Deployment Architecture
+Протокольные мапперы:
+- `phone` (атрибут пользователя)
+- `department` (атрибут пользователя)
+- `employee_id` (атрибут пользователя)
+- `merchant_id` (атрибут пользователя)
+- `groups` (членство в группах)
 
-### Development
+## Безопасность
 
-```
-docker-compose up -d
-```
+### Функции
 
-- Single Keycloak instance
-- PostgreSQL container
-- Hot-reload for themes
-- Local debugging
+- Регистрация отключена (пользователей создаёт администратор)
+- Сброс пароля по email отключён
+- Защита от перебора включена
+- Политика паролей: длина(8), цифры, заглавные, строчные, спецсимволы
+- MFA: TOTP (условный) + WebAuthn Passwordless (Passkeys)
+- Социальный логин: только привязка (без авторегистрации)
+- Таймауты сессий настроены
+- CSP-заголовки в темах
 
-### Production
+### WebAuthn (Passkeys)
 
-```mermaid
-graph TB
-    subgraph "Kubernetes Cluster"
-        subgraph "Namespace: keycloak"
-            ING[Ingress]
-            
-            subgraph "StatefulSet"
-                KC1[Pod: keycloak-0]
-                KC2[Pod: keycloak-1]
-                KC3[Pod: keycloak-2]
-            end
-            
-            SVC[Service: keycloak]
-            CM[ConfigMap]
-            SEC[Secret]
-            PDB[PodDisruptionBudget]
-        end
-        
-        subgraph "Namespace: database"
-            PG[PostgreSQL HA]
-        end
-    end
-    
-    ING --> SVC
-    SVC --> KC1
-    SVC --> KC2
-    SVC --> KC3
-    
-    KC1 --> PG
-    KC2 --> PG
-    KC3 --> PG
-```
+- Верификация пользователя: preferred
+- Аттестация: не требуется
+- Таймаут: 60 секунд
+- Резидентный ключ: required (passwordless)
 
-## ADR Index
+## Мониторинг и наблюдаемость
 
-- [ADR-001: Gradle over Maven](./adr/001-gradle-over-maven.md)
-- [ADR-002: Keycloakify for Themes](./adr/002-keycloakify-themes.md)
-- [ADR-003: GitOps for Realm Config](./adr/003-gitops-realm-config.md)
-- [ADR-004: OpenTelemetry for Observability](./adr/004-opentelemetry.md)
+### Метрики Prometheus
+
+Keycloak предоставляет метрики на `:9000/metrics` (внутренний порт, проброшен на `:9001` хоста):
+- JVM (куча, GC, потоки)
+- HTTP-запросы
+- Активные сессии
+- Статистика кеша
+
+### Дашборды Grafana
+
+- **Keycloak Audit**: события логина, ошибки, сессии, JVM, аптайм
+
+### Логи Loki
+
+Promtail собирает логи Docker-контейнеров и отправляет в Loki. Grafana визуализирует через LogQL.
+
+### Трассировка Jaeger
+
+OpenTelemetry Collector принимает трассировки по OTLP (gRPC :4317, HTTP :4318) и экспортирует в Jaeger (:16686).
+
+## Индекс ADR
+
+- [ADR-001: Gradle вместо Maven](./adr/001-gradle-over-maven.md)
+- [ADR-002: Keycloakify для тем](./adr/002-keycloakify-themes.md)
+- [ADR-003: GitOps для конфигурации realm](./adr/003-gitops-realm-config.md)
+- [ADR-004: OpenTelemetry для наблюдаемости](./adr/004-opentelemetry.md)
