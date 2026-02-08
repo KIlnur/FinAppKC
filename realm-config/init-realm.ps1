@@ -206,9 +206,9 @@ if ($CreateTestUser) {
   if ($users.Count -eq 0) {
     Invoke-KcApi "/users" -Method Post -Body @{
       username      = "sgadmin"
-      email         = "ilnur.kutlubaev@yandx.ru"
-      firstName     = "Ilnur"
-      lastName      = "Kutlubaev"
+      email         = "test.user@mail.com"
+      firstName     = "Test"
+      lastName      = "User"
       enabled       = $true
       emailVerified = $true
       credentials   = @(@{type = "password"; value = "Admin123!"; temporary = $false})
