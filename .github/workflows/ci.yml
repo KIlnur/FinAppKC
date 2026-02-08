@@ -122,7 +122,7 @@ jobs:
 
       - name: Publish test report
         if: always()
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: 'kc-plugins/build/test-results/test/*.xml'
           check_name: 'Plugin Unit Tests'
@@ -167,7 +167,7 @@ jobs:
 
       - name: Publish test report
         if: always()
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: 'kc-plugins/build/test-results/integrationTest/*.xml'
           check_name: 'Integration Tests'
