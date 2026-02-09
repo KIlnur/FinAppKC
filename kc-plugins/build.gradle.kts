@@ -11,7 +11,7 @@ group = "com.finappkc"
 version = "1.0.0-SNAPSHOT"
 
 // Keycloak version - update as needed
-val keycloakVersion = "26.1.4"
+val keycloakVersion = "26.5.2"
 val quarkusVersion = "3.8.6"
 
 repositories {
