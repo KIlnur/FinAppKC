@@ -42,7 +42,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
-    testImplementation("org.assertj:assertj-core:3.25.3")
+    testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.keycloak:keycloak-core:$keycloakVersion")
     testImplementation("org.keycloak:keycloak-server-spi:$keycloakVersion")
     testImplementation("org.keycloak:keycloak-server-spi-private:$keycloakVersion")
