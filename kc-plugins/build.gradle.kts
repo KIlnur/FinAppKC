@@ -40,8 +40,8 @@ dependencies {
     
     // Testing
     testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.0.2")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.2.3")
     testImplementation("org.assertj:assertj-core:3.25.3")
     testImplementation("org.keycloak:keycloak-core:$keycloakVersion")
     testImplementation("org.keycloak:keycloak-server-spi:$keycloakVersion")
@@ -49,9 +49,9 @@ dependencies {
     testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
     
     // Integration tests
-    testImplementation("org.testcontainers:testcontainers:1.19.6")
-    testImplementation("org.testcontainers:junit-jupiter:1.19.6")
-    testImplementation("org.testcontainers:postgresql:1.19.6")
+    testImplementation("org.testcontainers:testcontainers:2.0.3")
+    testImplementation("org.testcontainers:junit-jupiter:2.0.3")
+    testImplementation("org.testcontainers:postgresql:2.0.3")
     testImplementation("io.rest-assured:rest-assured:5.4.0")
 }
 
