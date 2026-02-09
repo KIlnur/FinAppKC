@@ -32,7 +32,7 @@ dependencies {
     
     // Kotlin
     implementation(kotlin("stdlib"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
     
     // Logging
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
