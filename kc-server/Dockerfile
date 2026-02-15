@@ -35,7 +35,7 @@ COPY kc-themes/ ./
 RUN npm run build:keycloak
 
 # ================== Stage 3: Final Keycloak Image ==================
-FROM quay.io/keycloak/keycloak:25.0.6 AS final
+FROM quay.io/keycloak/keycloak:26.5.3 AS final
 
 # Metadata
 LABEL org.opencontainers.image.title="FinAppKC"
